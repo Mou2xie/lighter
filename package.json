@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "tsx index.ts"
@@ -19,6 +20,11 @@
   },
   "homepage": "https://github.com/Mou2xie/lighter#readme",
   "devDependencies": {
-    "tsx": "^4.23.15"
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "openai": "^7.30.1"
   }
 }
