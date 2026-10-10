@@ -1,0 +1,24 @@
+{
+  "name": "lighter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsx index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mou2xie/lighter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Mou2xie/lighter/issues"
+  },
+  "homepage": "https://github.com/Mou2xie/lighter#readme",
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}
