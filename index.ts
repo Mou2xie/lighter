@@ -28,4 +28,5 @@ const response = await openai.chat.completions.create({
     stream: false,
 });
 
-console.log("Model:", response.choices[0].message?.content);
+// console.log("Model:", response.choices[0].message?.content);
+process.stdout.write(response.choices[0].message?.content ?? "Model no response.");
