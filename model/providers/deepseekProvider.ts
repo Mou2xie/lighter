@@ -1,18 +1,18 @@
-import { loadEnvFile } from "node:process";
 import Openai from "openai";
-import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { APIKeyloader } from "../APIKeyloader.js";
 
-// Load environment variables from a .env file
-loadEnvFile();
-const apiKey = process.env.DEEPSEEK_API_KEY;
-
-const openai = new Openai({
-    baseURL: 'https://api.deepseek.com',
-    apiKey: apiKey,
-});
-
-class Model {
-    constructor() { }
-    stream(){}
+export class DeepseekProvider {
+    readonly deepseek: any;
+    constructor() {
+        try {
+            const { apiKey } = APIKeyloader("deepseek");
+            this.deepseek = new Openai({
+                baseURL: 'https://api.deepseek.com',
+                apiKey,
+            });
+        }
+        catch (error) {
+            throw new Error(`Failed to initialize DeepseekProvider: ${error}`);
+        }
+    }
 }
-

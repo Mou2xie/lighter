@@ -1,19 +1,7 @@
-import { loadEnvFile } from "node:process";
-import Openai from "openai";
+import {DeepseekProvider} from "./model/providers/deepseekProvider.js";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
-// Load environment variables from a .env file
-loadEnvFile();
-const apiKey = process.env.DEEPSEEK_API_KEY;
-
-if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY is not set.");
-}
-
-const openai = new Openai({
-    baseURL: 'https://api.deepseek.com',
-    apiKey: apiKey,
-});
+const deepseek = new DeepseekProvider();
 
 const systemPrompt = "You are a helpful assistant.";
 
@@ -21,7 +9,7 @@ const messages: ChatCompletionMessageParam[] = [{ role: "system", content: syste
 
 messages.push({ role: "user", content: "Hello, how are you?" });
 
-const response = await openai.chat.completions.create({
+const response = await deepseek.deepseek.chat.completions.create({
     messages,
     model: "deepseek-flash",
     reasoning_effort: "low",

@@ -5,8 +5,7 @@ loadEnvFile();
 
 type Provider = "deepseek";
 
-export const APIKeyloader = (provider: Provider) => {
-
+export function APIKeyloader(provider: Provider): { apiKey: string | undefined } {
     switch (provider) {
         case "deepseek":
             return {
