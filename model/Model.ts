@@ -15,17 +15,16 @@ export class Model {
     constructor(config: modelConfig) {
         this.provider = config.provider;
         this.modelID = config.modelID ?? "deepseek-flash";
-        this.systemPrompt = config.systemPrompt;
+        this.systemPrompt = config.systemPrompt ?? "You are a helpful assistant.";
     }
 
-    async invoke(input: string): Promise<string> {
+    async invoke(input: string) {
         const response = await this.provider.responses.create({
             model: this.modelID,
-            instructions: this.systemPrompt ?? "You are a helpful assistant.",
+            instructions: this.systemPrompt,
             input,
         });
-        return response.output_text;
-
+        return response;
     }
 
     stream() { }
