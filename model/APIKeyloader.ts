@@ -1,17 +1,13 @@
+// Load api keys for specific providers from .env file
 import { loadEnvFile } from "node:process";
-
-// Load environment variables from a .env file
 loadEnvFile();
 
-type Provider = "deepseek";
+type ModelProvider = "deepseek";
 
-export function APIKeyloader(provider: Provider): { apiKey: string | undefined } {
-    switch (provider) {
-        case "deepseek":
-            return {
-                apiKey: process.env.DEEPSEEK_API_KEY
-            };
-        default:
-            throw new Error(`Unsupported provider: ${provider}`);
-    }
+const modelKeyMap: Record<ModelProvider, string> = {
+    deepseek: "DEEPSEEK_API_KEY",
+}
+
+export const APIKeyloader = (modelProvider: ModelProvider): string | undefined => {
+    return process.env[modelKeyMap[modelProvider]];
 }

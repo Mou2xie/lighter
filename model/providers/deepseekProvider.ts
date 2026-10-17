@@ -2,17 +2,18 @@ import Openai from "openai";
 import { APIKeyloader } from "../APIKeyloader.js";
 
 export class DeepseekProvider {
-    readonly deepseek: any;
+    readonly name: string = "deepseek";
+    readonly model: Openai;
+
     constructor() {
-        try {
-            const { apiKey } = APIKeyloader("deepseek");
-            this.deepseek = new Openai({
-                baseURL: 'https://api.deepseek.com',
-                apiKey,
-            });
+        const apiKey = APIKeyloader("deepseek");
+        if (!apiKey) {
+            throw new Error("Deepseek API key is not set.");
         }
-        catch (error) {
-            throw new Error(`Failed to initialize DeepseekProvider: ${error}`);
-        }
+
+        this.model = new Openai({
+            baseURL: 'https://api.deepseek.com',
+            apiKey,
+        });
     }
 }
