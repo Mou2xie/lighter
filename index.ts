@@ -1,14 +1,15 @@
-import {APIKeyloader} from "./model/APIKeyloader.js";
-import {DeepseekProvider} from "./model/providers/DeepseekProvider.js";
-import {Model} from "./model/Model.js";
+import { APIKeyloader } from "./model/APIKeyloader.js";
+import { DeepseekProvider } from "./model/providers/DeepseekProvider.js";
+import { Model } from "./model/Model.js";
+import { SystemMessage } from "./model/types/Message.js";
 
 const deepseek = new DeepseekProvider(APIKeyloader("deepseek"));
 const model = new Model({
     provider: deepseek.provider,
-});
+    modelID: "deepseek-flash",
+    systemPrompt: new SystemMessage("You are a helpful assistant."),
+});;
 
-const input = "What is the capital of France?";
+const response = await model.invoke("What is the capital of China?");
 
-const response = await model.invoke(input);
-
-process.stdout.write(`Response:\n ${response}\n`);
+console.dir(response, { depth: null });
