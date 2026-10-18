@@ -1,15 +1,13 @@
-import type { DeepSeek } from "./providers/DeepseekProvider.js";
 import Openai from "openai";
-import { SystemMessage, AIMessage, Messages } from "./types/Message.js";
 
 interface modelConfig {
-    provider: DeepSeek | Openai;
+    provider: Openai;
     modelID?: string;
     systemPrompt?: string | SystemMessage;
 }
 
 export class Model {
-    provider: DeepSeek | Openai;
+    provider: Openai;
     modelID: string;
     instructions: string;
 
@@ -19,12 +17,12 @@ export class Model {
         this.instructions = (typeof config.systemPrompt === "string" ? config.systemPrompt : config.systemPrompt?.content) ?? "You are a helpful assistant.";
     }
 
-    async invoke(input: string) {
+    async invoke(agentMessages: AgentMessages): Promise<AssistantMessage> {
         const response = await this.provider.responses.create({
             model: this.modelID,
             instructions: this.instructions,
-            input,
+            input:agentMessages
         });
-        return new AIMessage(response.output_text);
+        return new AssistantMessage(response.output_text);
     }
 }

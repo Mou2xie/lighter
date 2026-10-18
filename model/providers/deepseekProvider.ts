@@ -1,10 +1,9 @@
+import type { BaseProvider } from "./BaseProvider.js";
 import Openai from "openai";
 
-export type DeepSeek = Openai;
-
-export class DeepseekProvider {
+export class DeepseekProvider implements BaseProvider {
     readonly name: string = "deepseek";
-    readonly provider: DeepSeek;
+    readonly provider: Openai;
 
     constructor(apiKey: string) {
         this.provider = new Openai({

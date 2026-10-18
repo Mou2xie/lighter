@@ -1,3 +1,6 @@
 .env
 node_modules/
 dist/
+
+# local docs, not published
+docs/
