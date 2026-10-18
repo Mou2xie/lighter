@@ -58,20 +58,3 @@ export type ModelMessage = SystemMessage | UserMessage | AssistantMessage | Tool
 
 export type ModelMessages = ModelMessage[];
 
-
-
-class ExampleA {
-    name:string;
-    constructor(name:string = "Xie") {
-        this.name = name;
-    }
-}
-
-
-class ExampleB {
-    name:string;
-    constructor(name?:string) {
-        this.name = name ?? "Xie";
-    }
-}
-
