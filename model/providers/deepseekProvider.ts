@@ -1,4 +1,4 @@
-import type { BaseProvider } from "./BaseProvider.js";
+import type { BaseProvider, BaseMessageAdapter } from "./BaseProvider.js";
 import Openai from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import type { BaseMessages, ToolCall } from "../modelTypes/BaseMessage.js";
@@ -31,7 +31,7 @@ export class DeepseekProvider implements BaseProvider {
 }
 
 // Adapter for converting between BaseMessages and DeepSeek messages.
-export const deepseekMessageAdapter = {
+export const deepseekMessageAdapter: BaseMessageAdapter = {
 
     // Convert BaseMessages to DeepSeek ResponseInput.
     toInput(messages: BaseMessages): ResponseInput {
