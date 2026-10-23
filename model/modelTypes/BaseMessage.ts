@@ -54,7 +54,6 @@ export class ToolMessage {
     }
 }
 
-export type ModelMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
+export type BaseMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
-export type ModelMessages = ModelMessage[];
-
+export type BaseMessages = BaseMessage[];

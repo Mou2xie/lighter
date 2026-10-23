@@ -10,7 +10,7 @@ export class Model {
     provider: Openai;
     modelID: string;
     instructions: string;
-
+    
     constructor(config: modelConfig) {
         this.provider = config.provider;
         this.modelID = config.modelID ?? "deepseek-flash";
@@ -21,7 +21,7 @@ export class Model {
         const response = await this.provider.responses.create({
             model: this.modelID,
             instructions: this.instructions,
-            input:agentMessages
+            input: agentMessages
         });
         return new AssistantMessage(response.output_text);
     }

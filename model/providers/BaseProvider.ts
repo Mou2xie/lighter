@@ -1,6 +1,6 @@
 import Openai from "openai";
 
 export interface BaseProvider {
-    name: string;
-    provider: Openai;
+    readonly name: string;
+    readonly provider: Openai;
 }
