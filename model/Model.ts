@@ -1,28 +1,29 @@
 import Openai from "openai";
+import type { BaseMessages } from "./modelTypes/BaseMessage.js";
+import { AssistantMessage } from "./modelTypes/BaseMessage.js";
+import { deepseekMessageAdapter } from "./providers/DeepseekProvider.js";
 
 interface modelConfig {
     provider: Openai;
-    modelID?: string;
-    systemPrompt?: string | SystemMessage;
+    modelID: string;
+
 }
 
 export class Model {
     provider: Openai;
     modelID: string;
-    instructions: string;
-    
+
     constructor(config: modelConfig) {
         this.provider = config.provider;
-        this.modelID = config.modelID ?? "deepseek-flash";
-        this.instructions = (typeof config.systemPrompt === "string" ? config.systemPrompt : config.systemPrompt?.content) ?? "You are a helpful assistant.";
+        this.modelID = config.modelID;
     }
 
-    async invoke(agentMessages: AgentMessages): Promise<AssistantMessage> {
+    async invoke(baseMessages: BaseMessages): Promise<AssistantMessage> {
         const response = await this.provider.responses.create({
             model: this.modelID,
-            instructions: this.instructions,
-            input: agentMessages
+            input: deepseekMessageAdapter.toInput(baseMessages),
         });
-        return new AssistantMessage(response.output_text);
+        return deepseekMessageAdapter.fromResponse(response);
     }
 }
+
