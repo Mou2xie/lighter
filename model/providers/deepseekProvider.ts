@@ -4,7 +4,7 @@ import type { Response, ResponseInput } from "openai/resources/responses/respons
 import type { BaseMessages, ToolCall } from "../modelTypes/BaseMessage.js";
 import { AssistantMessage } from "../modelTypes/BaseMessage.js";
 
-type DeepseekModelID = "deepseek-flash" | "deepseek-pro";
+type DeepseekModelID = "deepseek-flash" | "deepseek-v4-pro";
 
 export class DeepseekProvider implements BaseProvider {
     readonly name = "deepseek" as const;

@@ -2,8 +2,8 @@ import { APIKeyloader } from "./model/APIKeyloader.js";
 import { DeepseekProvider } from "./model/providers/DeepseekProvider.js";
 import { Model } from "./model/Model.js";
 import { Agent } from "./agent-loop/Agent.js";
-import type { BaseMessages, AssistantMessage } from "./model/modelTypes/BaseMessage.js";
-import { SystemMessage, UserMessage, } from "./model/modelTypes/BaseMessage.js";
+import type { AssistantMessage } from "./model/modelTypes/BaseMessage.js";
+import { UserMessage } from "./model/modelTypes/BaseMessage.js";
 
 // get deepseek api key from environment variable, this is just for development convenience.
 const apiKey = APIKeyloader("deepseek");
