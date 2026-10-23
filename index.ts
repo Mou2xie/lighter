@@ -1,20 +1,23 @@
-import { Model } from "./model/Model.js";
-import { DeepseekProvider } from "./model/providers/DeepseekProvider.js";
 import { APIKeyloader } from "./model/APIKeyloader.js";
-import type { BaseMessages } from "./model/modelTypes/BaseMessage.js";
+import { DeepseekProvider } from "./model/providers/DeepseekProvider.js";
+import { Model } from "./model/Model.js";
+import { Agent } from "./agent-loop/Agent.js";
+import type { BaseMessages, AssistantMessage } from "./model/modelTypes/BaseMessage.js";
 import { SystemMessage, UserMessage, } from "./model/modelTypes/BaseMessage.js";
 
+// get deepseek api key from environment variable, this is just for development convenience.
 const apiKey = APIKeyloader("deepseek");
+// create deepseek provider, set modelID to "deepseek-flash".
+const deepseekProvider = new DeepseekProvider(apiKey, "deepseek-flash");
+// create model with deepseek provider.
+const model = new Model(deepseekProvider);
+// create agent with model.
+const agent = new Agent(model);
 
-const provider = new DeepseekProvider(apiKey, "deepseek-flash");
 
-const model = new Model(provider);
+const userMessage = new UserMessage("Write a short story about a robot learning to love.");
+const response = await agent.run(userMessage);
 
-const baseMessages: BaseMessages = [
-    new SystemMessage("You are a helpful assistant."),
-    new UserMessage("What is the capital of France?"),
-];
+const lastMessage = response.at(-1) as AssistantMessage;
 
-const response = await model.invoke(baseMessages);
-
-process.stdout.write(`Assistant: ${response.content}\n`);
+process.stdout.write(lastMessage.content);
