@@ -1,29 +1,37 @@
 import { Model } from "../model/Model.js";
 import type { BaseMessages } from "../model/types/BaseMessage.js";
 import { SystemMessage, UserMessage, ToolMessage } from "../model/types/BaseMessage.js";
-
-// Default system message for the agent if none is provided. Waiting to be extended.
-const defaultSystemMessage = new SystemMessage("You are a helpful assistant.");
+import type { Tool } from "./Tool.js";
+import { mdFileLoader } from "../libs/mdFileLoader.js";
 
 export interface AgentConfig {
     model: Model;
-    systemMessage?: SystemMessage;
+    tools?: Tool[];
+    systemPrompt?: SystemMessage;
 }
 
 export class Agent {
     model: Model;
-    systemMessage: SystemMessage
+    tools: Tool[];
     agentMessages: BaseMessages = [];
 
     constructor(agentConfig: AgentConfig) {
         this.model = agentConfig.model;
-        this.systemMessage = agentConfig?.systemMessage ?? defaultSystemMessage;
+        this.tools = agentConfig?.tools ?? [];
+
+        // Initialize system prompt.
+        if (agentConfig?.systemPrompt) {
+            this.agentMessages.push(agentConfig.systemPrompt);
+        } else {
+            // Get default system prompt if no system prompt is provided in the agent config.
+            const defaultSystemPrompt = new SystemMessage(mdFileLoader(new URL("../assets/default-system-message.md", import.meta.url)));
+            this.agentMessages.push(defaultSystemPrompt);
+        }
     }
 
     async run(userMessage: UserMessage): Promise<BaseMessages> {
 
-        // Initialize the agent messages with the system message and the first user message.
-        this.agentMessages.push(this.systemMessage);
+        // Push the user message to the agent messages.
         this.agentMessages.push(userMessage);
 
         // Agent core loop

@@ -1,17 +1,17 @@
-import type { ToolMessage } from "../model/types/BaseMessage.js";
+import { ToolMessage } from "../model/types/BaseMessage.js";
 
 export interface ToolConfig {
     name: string;
     description: string;
-    parameterSchema: Record<string, any>;
-    function: (args: Record<string, any>) => any;
+    parameterSchema: Record<string, { type: string }>;
+    function(args: Record<string, any>): any;
 }
 
 export class Tool {
     readonly name: string;
-    readonly description: string
-    parameterSchema: Record<string, any>;
-    function: (args: Record<string, any>) => any;
+    readonly description: string;
+    readonly parameterSchema: Record<string, { type: string }>;
+    readonly function: (args: Record<string, any>) => any;
 
     constructor(config: ToolConfig) {
         this.name = config.name;
@@ -20,15 +20,13 @@ export class Tool {
         this.function = config.function;
     }
 
-    runTool(): ToolMessage {
-        const result = this.function({});
+    execute(args: Record<string, any>, options: { callId: string }): ToolMessage {
+        const result = this.function(args);
         return new ToolMessage({
-            callId: "tool-call-id",
+            callId: options.callId,
             toolName: this.name,
-            toolOutput: result,
+            toolOutput: String(result),
             isError: false
         });
     }
-
-
 }
