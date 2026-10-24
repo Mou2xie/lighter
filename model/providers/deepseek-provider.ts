@@ -1,18 +1,18 @@
-import type { BaseProvider, BaseMessageAdapter } from "./BaseProvider.js";
+import type { Provider, BaseMessageAdapter } from "./provider.js";
 import Openai from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
-import type { BaseMessages, ToolCall } from "../types/BaseMessage.js";
-import { AssistantMessage } from "../types/BaseMessage.js";
+import type { BaseMessages, ToolCall } from "../types/messages.js";
+import { AssistantMessage } from "../types/messages.js";
 
 // Deepseek's two available models: deepseek-flash and deepseek-v4-pro.
-type DeepseekModelID = "deepseek-flash" | "deepseek-v4-pro";
+type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
 
-export class DeepseekProvider implements BaseProvider {
+export class DeepSeekProvider implements Provider {
     readonly name = "deepseek" as const;
     readonly provider: Openai;
-    readonly modelID: DeepseekModelID;
+    readonly modelID: DeepSeekModelID;
 
-    constructor(apiKey: string, modelID: DeepseekModelID) {
+    constructor(apiKey: string, modelID: DeepSeekModelID) {
         this.provider = new Openai({
             baseURL: 'https://api.deepseek.com',
             apiKey,

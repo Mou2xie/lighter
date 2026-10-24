@@ -5,6 +5,6 @@ import { readFileSync } from "node:fs";
  * Relative paths are resolved from the current working directory.
  * Use new URL("./file.md", import.meta.url) for module-relative paths.
  */
-export const mdFileLoader = (filePath: string | URL): string => {
+export const loadMarkdown = (filePath: string | URL): string => {
     return readFileSync(filePath, "utf8");
 };

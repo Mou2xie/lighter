@@ -9,7 +9,7 @@ const modelKeyMap: Record<ModelProvider, string> = {
     deepseek: "DEEPSEEK_API_KEY",
 }
 
-export const APIKeyloader = (modelProvider: ModelProvider): string => {
+export const loadApiKey = (modelProvider: ModelProvider): string => {
     const apiKey = process.env[modelKeyMap[modelProvider]];
     if (!apiKey) {
         throw new Error(`${modelProvider} API key is not set.`);

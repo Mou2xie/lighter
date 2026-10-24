@@ -1,4 +1,4 @@
-import { ToolMessage } from "../model/types/BaseMessage.js";
+import { ToolMessage } from "../model/types/messages.js";
 
 export interface ToolConfig {
     name: string;

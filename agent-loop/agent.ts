@@ -1,8 +1,8 @@
-import { Model } from "../model/Model.js";
-import type { BaseMessages } from "../model/types/BaseMessage.js";
-import { SystemMessage, UserMessage, ToolMessage } from "../model/types/BaseMessage.js";
-import type { Tool } from "./Tool.js";
-import { mdFileLoader } from "../libs/mdFileLoader.js";
+import { Model } from "../model/model.js";
+import type { BaseMessages } from "../model/types/messages.js";
+import { SystemMessage, UserMessage, ToolMessage } from "../model/types/messages.js";
+import type { Tool } from "./tool.js";
+import { loadMarkdown } from "../libs/markdown-loader.js";
 
 export interface AgentConfig {
     model: Model;
@@ -24,7 +24,7 @@ export class Agent {
             this.agentMessages.push(agentConfig.systemPrompt);
         } else {
             // Get default system prompt if no system prompt is provided in the agent config.
-            const defaultSystemPrompt = new SystemMessage(mdFileLoader(new URL("./assets/defaultSystemPrompt.md", import.meta.url)));
+            const defaultSystemPrompt = new SystemMessage(loadMarkdown(new URL("./assets/default-system-prompt.md", import.meta.url)));
             this.agentMessages.push(defaultSystemPrompt);
         }
 
