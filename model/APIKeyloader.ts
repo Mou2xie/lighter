@@ -1,4 +1,5 @@
 // Load api keys for specific providers from .env file
+// Used for development and testing purposes.
 import { loadEnvFile } from "node:process";
 loadEnvFile();
 

@@ -1,29 +1,37 @@
 import { Model } from "../model/Model.js";
-import type { BaseMessages } from "../model/modelTypes/BaseMessage.js";
-import { SystemMessage, UserMessage, ToolMessage } from "../model/modelTypes/BaseMessage.js";
+import type { BaseMessages } from "../model/types/BaseMessage.js";
+import { SystemMessage, UserMessage, ToolMessage } from "../model/types/BaseMessage.js";
 
+// Default system message for the agent if none is provided. Waiting to be extended.
 const defaultSystemMessage = new SystemMessage("You are a helpful assistant.");
+
+export interface AgentConfig {
+    model: Model;
+    systemMessage?: SystemMessage;
+}
 
 export class Agent {
     model: Model;
     systemMessage: SystemMessage
     agentMessages: BaseMessages = [];
 
-    constructor(model: Model, systemMessage?: SystemMessage) {
-        this.model = model;
-        this.systemMessage = systemMessage ?? defaultSystemMessage;
+    constructor(agentConfig: AgentConfig) {
+        this.model = agentConfig.model;
+        this.systemMessage = agentConfig?.systemMessage ?? defaultSystemMessage;
     }
 
     async run(userMessage: UserMessage): Promise<BaseMessages> {
 
+        // Initialize the agent messages with the system message and the first user message.
         this.agentMessages.push(this.systemMessage);
         this.agentMessages.push(userMessage);
 
         // Agent core loop
         while (true) {
             const response = await this.model.invoke(this.agentMessages);
-            this.agentMessages.push(response);
+            this.agentMessages.push(response); // Append the assistant's response to the agent messages.
 
+            // handle tool calls if any.
             if (response.toolCalls && response.toolCalls.length > 0) {
                 for (const toolCall of response.toolCalls) {
                     // Handle tool calls waiting to be implemented.
@@ -41,6 +49,7 @@ export class Agent {
             }
         };
 
+        // return entire agent messages.
         return this.agentMessages;
     }
 }

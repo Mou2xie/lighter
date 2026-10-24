@@ -19,7 +19,7 @@ export class AssistantMessage {
     readonly role = "assistant" as const;
     readonly content: string;
     readonly toolCalls: ToolCall[];
-    readonly reasoning?: string;
+    readonly reasoning?: string; // For the assistant's thought process display.
 
     constructor(
         content: string,
@@ -41,16 +41,16 @@ export class ToolMessage {
     readonly toolOutput: string;
     readonly isError: boolean;
 
-    constructor(options: {
+    constructor(config: {
         callId: string;
         toolName: string;
         toolOutput: string;
         isError?: boolean;
     }) {
-        this.callId = options.callId;
-        this.toolName = options.toolName;
-        this.toolOutput = options.toolOutput;
-        this.isError = options.isError ?? false;
+        this.callId = config.callId;
+        this.toolName = config.toolName;
+        this.toolOutput = config.toolOutput;
+        this.isError = config.isError ?? false;
     }
 }
 

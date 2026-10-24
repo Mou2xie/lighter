@@ -1,9 +1,10 @@
 import type { BaseProvider, BaseMessageAdapter } from "./BaseProvider.js";
 import Openai from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
-import type { BaseMessages, ToolCall } from "../modelTypes/BaseMessage.js";
-import { AssistantMessage } from "../modelTypes/BaseMessage.js";
+import type { BaseMessages, ToolCall } from "../types/BaseMessage.js";
+import { AssistantMessage } from "../types/BaseMessage.js";
 
+// Deepseek's two possible models: deepseek-flash and deepseek-v4-pro.
 type DeepseekModelID = "deepseek-flash" | "deepseek-v4-pro";
 
 export class DeepseekProvider implements BaseProvider {

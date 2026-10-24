@@ -1,6 +1,6 @@
 import type { BaseProvider } from "./providers/BaseProvider.js";
-import type { BaseMessages } from "./modelTypes/BaseMessage.js";
-import { AssistantMessage } from "./modelTypes/BaseMessage.js";
+import type { BaseMessages } from "./types/BaseMessage.js";
+import { AssistantMessage } from "./types/BaseMessage.js";
 
 export class Model {
     readonly provider: BaseProvider;
