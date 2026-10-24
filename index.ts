@@ -1,7 +1,7 @@
 import { APIKeyloader } from "./model/APIKeyloader.js";
-import { DeepseekProvider } from "./model/providers/DeepseekProvider.js";
+import { DeepseekProvider } from "./model/providers/deepseekProvider.js";
 import { Model } from "./model/Model.js";
-import { Agent } from "./agent-loop/Agent.js";
+import { Agent } from "./agent-loop/agent.js";
 import { Tool } from "./agent-loop/Tool.js";
 import type { AssistantMessage } from "./model/types/BaseMessage.js";
 import { UserMessage } from "./model/types/BaseMessage.js";
