@@ -4,24 +4,24 @@ export interface ToolConfig {
     name: string;
     description: string;
     parameterSchema: Record<string, { type: string }>;
-    function(args: Record<string, any>): any;
+    func(args: Record<string, any>): any;
 }
 
 export class Tool {
     readonly name: string;
     readonly description: string;
     readonly parameterSchema: Record<string, { type: string }>;
-    readonly function: (args: Record<string, any>) => any;
+    readonly func: (args: Record<string, any>) => any;
 
     constructor(config: ToolConfig) {
         this.name = config.name;
         this.description = config.description;
         this.parameterSchema = config.parameterSchema;
-        this.function = config.function;
+        this.func = config.func;
     }
 
     execute(args: Record<string, any>, options: { callId: string }): ToolMessage {
-        const result = this.function(args);
+        const result = this.func(args);
         return new ToolMessage({
             callId: options.callId,
             toolName: this.name,
