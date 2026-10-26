@@ -1,6 +1,6 @@
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
-import { Agent } from "./agent-loop/agent.js";
+import { Agent } from "./agent/agent.js";
 import { Tool, UserMessage } from "./core/protocol.js";
 
 // Load DEEPSEEK_API_KEY from environment variable.
