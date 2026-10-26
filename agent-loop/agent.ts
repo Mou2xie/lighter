@@ -1,5 +1,4 @@
 import { Model } from "../model/model.js";
-import { loadMarkdown } from "../libs/markdown-loader.js";
 import { SystemMessage, UserMessage, BaseMessages, Tool } from "../core/protocol.js";
 
 export interface AgentConfig {
@@ -17,14 +16,8 @@ export class Agent {
         this.model = agentConfig.model;
         this.tools = agentConfig?.tools ?? [];
 
-        // Initialize system prompt.
-        if (agentConfig?.systemPrompt) {
-            this.agentMessages.push(agentConfig.systemPrompt);
-        } else {
-            // Get default system prompt if no system prompt is provided in the agent config.
-            const defaultSystemPrompt = new SystemMessage(loadMarkdown(new URL("./assets/default-system-prompt.md", import.meta.url)));
-            this.agentMessages.push(defaultSystemPrompt);
-        }
+        // If system prompt is provided, push it into the agent messages, otherwise use default system prompt.
+        agentConfig.systemPrompt ? this.agentMessages.push(agentConfig.systemPrompt) : this.agentMessages.push(new SystemMessage("You are a helpful assistant."));
     }
 
     async run(userMessage: UserMessage): Promise<BaseMessages> {
