@@ -1,5 +1,6 @@
 import { Model } from "../model/model.js";
 import { loadMarkdown } from "../libs/markdown-loader.js";
+import { createToolSpec } from "../libs/tool-spec-creater.js";
 import { SystemMessage, UserMessage, BaseMessages, Tool } from "../core/protocol.js";
 
 export interface AgentConfig {
@@ -34,13 +35,8 @@ export class Agent {
 
         // Agent core loop
         while (true) {
-            const response = await this.model.invoke(this.agentMessages, this.tools.map(t => ({
-                type: "function",
-                name: t.name,
-                description: t.description,
-                parameters: t.parameters,
-                strict: false,
-            }))); // Invoke the model with the current agent messages and tools.
+            const response = await this.model.invoke(this.agentMessages, this.tools.map(tool => createToolSpec(tool))); // Invoke the model with the current agent messages and tool spec.
+
             this.agentMessages.push(response); // Append the assistant's response to the agent messages.
 
             // handle tool calls if any.

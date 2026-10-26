@@ -33,7 +33,7 @@ const agent = new Agent({
 });
 
 
-const userMessage = new UserMessage("What is the result of 2 + 7?");
+const userMessage = new UserMessage("What is the result of 11 + 7?");
 const response = await agent.run(userMessage);
 
 console.dir(response);
