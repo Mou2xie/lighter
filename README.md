@@ -14,7 +14,7 @@ The repository is currently a single-package prototype with the following founda
 
 - [`core/protocol.ts`](./core/protocol.ts): Messages, tool calls, tool results, and basic tool definitions.
 - [`model/`](./model/model.ts): `Model`, `Provider`, non-streaming DeepSeek integration, and message adaptation.
-- [`agent-loop/agent.ts`](./agent-loop/agent.ts): A basic execution loop that awaits asynchronous tool results.
+- [`agent/agent.ts`](./agent/agent.ts): A basic execution loop that awaits asynchronous tool results.
 - [`index.ts`](./index.ts): An addition demo that manually assembles a model and a tool.
 - The demo reads its API key from an environment variable. Agent accepts an explicit system prompt and provides a short built-in default.
 
