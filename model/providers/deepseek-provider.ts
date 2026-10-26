@@ -1,4 +1,4 @@
-import type { Provider, BaseMessageAdapter } from "./provider.js";
+import type { Provider } from "./provider.js";
 import Openai from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import type { BaseMessages, ToolCall, ToolSpec } from "../../core/protocol.js";
@@ -9,8 +9,8 @@ type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
 
 export class DeepSeekProvider implements Provider {
     readonly name = "deepseek" as const;
-    readonly client: Openai;
-    readonly modelID: DeepSeekModelID;
+    private readonly client: Openai;
+    modelID: DeepSeekModelID;
 
     constructor(apiKey: string, modelID: DeepSeekModelID) {
         this.client = new Openai({
@@ -33,7 +33,7 @@ export class DeepSeekProvider implements Provider {
 }
 
 // Adapter for converting between BaseMessages and DeepSeek messages.
-export const deepseekMessageAdapter: BaseMessageAdapter = {
+const deepseekMessageAdapter = {
 
     // Convert BaseMessages to DeepSeek ResponseInput.
     toInput(messages: BaseMessages): ResponseInput {
