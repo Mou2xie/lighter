@@ -1,8 +1,6 @@
 import { Model } from "../model/model.js";
-import type { BaseMessages } from "../model/types/messages.js";
-import { SystemMessage, UserMessage, ToolMessage } from "../model/types/messages.js";
-import type { Tool } from "./types/tool.js";
 import { loadMarkdown } from "../libs/markdown-loader.js";
+import { SystemMessage, UserMessage, BaseMessages, Tool } from "../core/protocol.js";
 
 export interface AgentConfig {
     model: Model;
@@ -27,14 +25,6 @@ export class Agent {
             const defaultSystemPrompt = new SystemMessage(loadMarkdown(new URL("./assets/default-system-prompt.md", import.meta.url)));
             this.agentMessages.push(defaultSystemPrompt);
         }
-
-        // Add tool descriptions to the agent messages if tools are provided.
-        if (this.tools.length > 0) {
-            for (const tool of this.tools) {
-                const toolDescriptionMessage = new SystemMessage(`Tool available: ${tool.name} - ${tool.description}. Parameters: ${JSON.stringify(tool.parameterSchema)}`);
-                this.agentMessages.push(toolDescriptionMessage);
-            }
-        }
     }
 
     async run(userMessage: UserMessage): Promise<BaseMessages> {
@@ -48,7 +38,7 @@ export class Agent {
                 type: "function",
                 name: item.name,
                 description: item.description,
-                parameters: item.parameterSchema,
+                parameters: item.parameters,
                 strict: false,
             }))); // Invoke the model with the current agent messages and tools.
             this.agentMessages.push(response); // Append the assistant's response to the agent messages.

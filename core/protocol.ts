@@ -59,13 +59,12 @@ export type BaseMessage = SystemMessage | UserMessage | AssistantMessage | ToolM
 export type BaseMessages = BaseMessage[];
 
 
-
-export interface ToolDefinition {
+export interface ToolSpec {
     type: "function";
     name: string;
     description: string;
     parameters: Record<string, any>;
-    strict: false,
+    strict: boolean;
 }
 
 interface ToolConfig {
@@ -78,7 +77,7 @@ interface ToolConfig {
 export class Tool {
     readonly name: string;
     readonly description: string;
-    readonly parameters: Record<string, unknown>;
+    readonly parameters: Record<string, any>;
     readonly func: (args: Record<string, any>) => any;
 
     constructor(config: ToolConfig) {
