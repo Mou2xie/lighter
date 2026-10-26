@@ -2,7 +2,7 @@ import { loadApiKey } from "./libs/api-key-loader.js";
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
 import { Agent } from "./agent-loop/agent.js";
-import { Tool } from "./agent-loop/tool.js";
+import { Tool } from "./agent-loop/types/tool.js";
 import type { AssistantMessage } from "./model/types/messages.js";
 import { UserMessage } from "./model/types/messages.js";
 

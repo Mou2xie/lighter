@@ -1,7 +1,7 @@
 import { Model } from "../model/model.js";
 import type { BaseMessages } from "../model/types/messages.js";
 import { SystemMessage, UserMessage, ToolMessage } from "../model/types/messages.js";
-import type { Tool } from "./tool.js";
+import type { Tool } from "./types/tool.js";
 import { loadMarkdown } from "../libs/markdown-loader.js";
 
 export interface AgentConfig {

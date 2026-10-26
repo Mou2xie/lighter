@@ -57,3 +57,46 @@ export class ToolMessage {
 export type BaseMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
 export type BaseMessages = BaseMessage[];
+
+
+
+export interface ToolDefinition {
+    type: "function";
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+    strict: false,
+}
+
+interface ToolConfig {
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+    func(args: Record<string, any>): any;
+}
+
+export class Tool {
+    readonly name: string;
+    readonly description: string;
+    readonly parameters: Record<string, unknown>;
+    readonly func: (args: Record<string, any>) => any;
+
+    constructor(config: ToolConfig) {
+        this.name = config.name;
+        this.description = config.description;
+        this.parameters = config.parameters;
+        this.func = config.func;
+    }
+
+    execute(args: Record<string, any>, options: { callId: string }): ToolMessage {
+        const result = this.func(args);
+        return new ToolMessage({
+            callId: options.callId,
+            toolName: this.name,
+            toolOutput: String(result),
+            isError: false
+        });
+    }
+
+
+}
