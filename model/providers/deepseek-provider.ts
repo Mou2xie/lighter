@@ -9,11 +9,11 @@ type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
 
 export class DeepSeekProvider implements Provider {
     readonly name = "deepseek" as const;
-    readonly provider: Openai;
+    readonly client: Openai;
     readonly modelID: DeepSeekModelID;
 
     constructor(apiKey: string, modelID: DeepSeekModelID) {
-        this.provider = new Openai({
+        this.client = new Openai({
             baseURL: 'https://api.deepseek.com',
             apiKey,
         });
@@ -22,7 +22,7 @@ export class DeepSeekProvider implements Provider {
 
     async invoke(baseMessages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
 
-        const response = await this.provider.responses.create({
+        const response = await this.client.responses.create({
             model: this.modelID,
             input: deepseekMessageAdapter.toInput(baseMessages),
             tools: toolSpecs,
