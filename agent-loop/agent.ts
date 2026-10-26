@@ -34,11 +34,11 @@ export class Agent {
 
         // Agent core loop
         while (true) {
-            const response = await this.model.invoke(this.agentMessages,this.tools.map(item=>({
+            const response = await this.model.invoke(this.agentMessages, this.tools.map(t => ({
                 type: "function",
-                name: item.name,
-                description: item.description,
-                parameters: item.parameters,
+                name: t.name,
+                description: t.description,
+                parameters: t.parameters,
                 strict: false,
             }))); // Invoke the model with the current agent messages and tools.
             this.agentMessages.push(response); // Append the assistant's response to the agent messages.
