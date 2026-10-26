@@ -71,14 +71,14 @@ interface ToolConfig {
     name: string;
     description: string;
     parameters: Record<string, any>;
-    func(args: Record<string, any>): any;
+    func(args: Record<string, any>): Promise<any>;
 }
 
 export class Tool {
     readonly name: string;
     readonly description: string;
     readonly parameters: Record<string, any>;
-    readonly func: (args: Record<string, any>) => any;
+    readonly func: (args: Record<string, any>) => Promise<any>;
 
     constructor(config: ToolConfig) {
         this.name = config.name;
@@ -87,8 +87,8 @@ export class Tool {
         this.func = config.func;
     }
 
-    execute(args: Record<string, any>, options: { callId: string }): ToolMessage {
-        const result = this.func(args);
+    async execute(args: Record<string, any>, options: { callId: string }): Promise<ToolMessage> {
+        const result = await this.func(args);
         return new ToolMessage({
             callId: options.callId,
             toolName: this.name,

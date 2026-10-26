@@ -46,7 +46,7 @@ export class Agent {
                     if (!tool) {
                         throw new Error(`Tool ${toolCall.toolName} not found.`);
                     }
-                    const toolResult = tool.execute(JSON.parse(toolCall.arguments), { callId: toolCall.callId });
+                    const toolResult = await tool.execute(JSON.parse(toolCall.arguments), { callId: toolCall.callId });
                     this.agentMessages.push(toolResult);
                 }
             } else {
