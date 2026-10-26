@@ -17,9 +17,9 @@ const additionTool = new Tool({
     description: "Adds two numbers together.",
     parameters: {
         type: "object",
-        a: { type: "number" },
-        b: { type: "number" },
+        properties: { a: { type: "number" }, b: { type: "number" } },
         required: ["a", "b"],
+        additionalProperties: false,
     },
     func: (args) => {
         console.log(`Tool 'addition' called with arguments: ${JSON.stringify(args)}`);

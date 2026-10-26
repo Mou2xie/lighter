@@ -103,7 +103,7 @@ export class Tool {
             name: this.name,
             description: this.description,
             parameters: this.parameters,
-            strict: true
+            strict: false,
         }
     }
 }
