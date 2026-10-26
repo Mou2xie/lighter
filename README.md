@@ -1,140 +1,205 @@
 # lighter
 
-lighter 由 lighter-framework 和 lighter-agent 两个子项目组成。
+lighter consists of two subprojects: lighter-framework and lighter-agent.
 
-lighter-framework 是一个面向开发者的 TypeScript AI Agent 开发框架，定位参考 LangChain。
+lighter-framework is a TypeScript framework for building AI agents, aimed at developers and taking product inspiration from LangChain.
 
-lighter-agent 是计划基于 lighter-framework 构建的开箱即用 Coding Agent，定位参考 Pi，后续将在独立项目中开发。
+lighter-agent is a planned coding agent built on lighter-framework, designed to work out of the box and taking product inspiration from Pi. It will be developed as a separate project.
 
-**当前仓库只负责 lighter-framework 的开发。** 框架计划围绕 `model`、`agent`、`harness` 提供可独立使用、可组合的能力，帮助开发者构建和扩展自己的 Agent 应用。
+**This repository is dedicated to lighter-framework.** The framework will provide independently usable, composable capabilities through its `model`, `agent`, and `harness` modules, helping developers build and extend their own agent applications.
 
-## 当前状态
+## Current Status
 
-仓库目前是单包原型，已有代码基础包括：
+The repository is currently a single-package prototype with the following foundations:
 
-- [`core/protocol.ts`](./core/protocol.ts)：消息、工具调用、工具结果及基础工具定义。
-- [`model/`](./model/model.ts)：`Model`、`Provider`、DeepSeek 非流式接入与消息适配。
-- [`agent-loop/agent.ts`](./agent-loop/agent.ts)：基础执行循环，支持等待异步工具结果。
-- [`index.ts`](./index.ts)：手工装配模型和工具的加法演示。
-- 演示入口通过环境变量读取 API Key，Agent 支持显式传入系统提示词，并提供内置的简短默认提示词。
+- [`core/protocol.ts`](./core/protocol.ts): Messages, tool calls, tool results, and basic tool definitions.
+- [`model/`](./model/model.ts): `Model`, `Provider`, non-streaming DeepSeek integration, and message adaptation.
+- [`agent-loop/agent.ts`](./agent-loop/agent.ts): A basic execution loop that awaits asynchronous tool results.
+- [`index.ts`](./index.ts): An addition demo that manually assembles a model and a tool.
+- The demo reads its API key from an environment variable. Agent accepts an explicit system prompt and provides a short built-in default.
 
-完整的 harness、公共 SDK 导出和测试体系尚未实现。下列清单描述目标能力，已有原型不代表对应能力已经完整验收。
+A complete harness, public SDK exports, and a test suite have not been implemented yet. The checklists below describe target capabilities; the existing prototype does not mean those capabilities have passed full acceptance testing.
 
-## lighter-framework v0.9 beta milestone
+## Run the Current Prototype Locally
 
-**版本目标：提供可独立使用、可组合、可扩展的 Agent 开发基础能力，并通过公开 SDK、测试和示例验证。**
+The development environment has been verified with Node.js 22.23.3. The project uses pnpm to manage dependencies.
 
-本里程碑聚焦模型接入、执行循环和会话管理，交付公共 SDK、必要测试、文档与可运行示例。
+```bash
+pnpm install
+```
 
-开发者应能完成三类任务：
+Create a local `.env` file with your API key, or provide it directly through an environment variable:
 
-1. 单独使用 `model` 调用模型，替换 Provider。
-2. 使用 `agent`，传入模型、消息和自定义工具，执行一次任务。
-3. 使用 `harness` 组合多轮 Agent 应用，管理内存会话并接入事件和 hook。
+```dotenv
+DEEPSEEK_API_KEY=replace_with_your_key
+```
 
-### 模块职责与边界
+`.env` is included in `.gitignore`. Keep real keys in your local or runtime environment, and use placeholders in examples and committed files.
 
-| 模块 | 核心职责 | beta 提供的能力 |
+```bash
+pnpm start
+```
+
+The start script uses Node.js to load the optional `.env` file, then runs `index.ts` through tsx. This entry point calls the real DeepSeek API to run the addition tool demo. OpenAI and Anthropic integrations are beta roadmap items below.
+
+Run the type checker:
+
+```bash
+pnpm exec tsc --noEmit
+```
+
+The current `test` script is still a placeholder. The test suite will be added as part of this milestone.
+
+## lighter-framework v0.9 Beta Milestone
+
+**Release goal: Provide independently usable, composable, and extensible foundations for agent development, validated through a public SDK, tests, and examples.**
+
+This milestone focuses on model integration, the execution loop, and session management. Deliverables include the public SDK, essential tests, documentation, and runnable examples.
+
+**Built-in providers for beta: DeepSeek, OpenAI, and Anthropic.** The baseline for all three is non-streaming text conversations and tool calling. Supported models and parameters will be defined during integration.
+
+Developers should be able to:
+
+1. Use `model` independently to call models and replace providers.
+2. Use `agent` to execute a task with a supplied model, messages, and custom tools.
+3. Use `harness` to compose multi-turn agent applications, manage in-memory sessions, and integrate events and hooks.
+
+### Module Responsibilities and Boundaries
+
+| Module | Core responsibility | Beta capabilities |
 | --- | --- | --- |
-| `core` | 共享协议 | 消息、工具定义与结果、运行上下文和公共类型 |
-| `model` | 统一模型接入 | Provider 适配、模型配置、请求参数、统一响应、错误和取消 |
-| `agent` | 推进一次任务 | Agent loop、工具执行、错误恢复、步数限制、取消、运行结果和事件 |
-| `harness` | 组合运行能力并管理会话 | 内存历史、显式装配、调用方上下文、事件订阅和执行 hook |
+| `core` | Shared contracts | Messages, tool definitions and results, execution context, and public types |
+| `model` | Unified model access | Provider adaptation, model configuration, request parameters, normalized responses, errors, and cancellation |
+| `agent` | Task execution | Agent loop, tool execution, error recovery, step limits, cancellation, run results, and events |
+| `harness` | Runtime composition and session management | In-memory history, explicit assembly, caller-supplied context, event subscriptions, and execution hooks |
 
-`core` 为三个主要模块提供共享协议。`Model` 可单独使用，`Agent` 依赖模型与工具协议，`Harness` 组合 Agent 并管理会话。
+`core` provides shared contracts for the three main modules. `Model` can be used independently, `Agent` depends on model and tool contracts, and `Harness` composes Agent and manages sessions.
 
-- 使用 harness 时，Session 统一管理历史；agent 接收当前上下文并产生新增消息。独立使用 agent 时，由调用方管理上下文。
-- 模型、提示词、工具、凭据和运行上下文由调用方显式提供；辅助加载器可选使用，公共导入不触发本地配置读取。
-- 工作目录可作为调用方上下文的一部分传入；项目扫描、文件访问和默认目录规则由具体应用定义。
-- 公共协议独立于厂商 SDK，具体 Provider 负责厂商请求、响应和工具格式的转换。
-- 事件用于观察运行过程；可等待的 hook 用于影响执行。两者分别定义顺序、异常和清理行为。
-- 先在现有仓库实现框架模块；SDK 交付阶段整理框架包入口和发布配置。
+- When using harness, Session owns the history. Agent receives the current context and produces new messages. When using agent independently, the caller manages the context.
+- Models, prompts, tools, credentials, and execution context are supplied explicitly by the caller. Helper loaders are optional; importing the public API does not read local configuration.
+- A working directory can be passed as part of the caller-supplied context. Project scanning, file access, and default directory rules are defined by the application.
+- Public contracts are independent of vendor SDKs. Each provider converts vendor-specific requests, responses, and tool formats.
+- Events observe execution; awaitable hooks influence it. Each has defined ordering, error handling, and cleanup behavior.
+- Implement framework modules in the existing repository first. Organize package entry points and publishing configuration during SDK delivery.
 
-### Model：统一模型接入
+### Beta Scope and Behavioral Contracts
 
-- [ ] 明确 `Model`、`Provider` 与 Adapter 的职责，让 `Model` 统一模型配置和调用，Provider 封装厂商适配。
-- [ ] 支持默认生成参数和单次请求覆盖，明确模型名称与参数的归属及合并规则。
-- [ ] 统一非流式请求和响应，保留回复内容、工具调用及明确的结束原因。
-- [ ] 识别请求失败、响应失败和输出截断，向上层提供明确结果。
-- [ ] 将取消信号传递到模型请求；明确调用失败的处理边界，避免重复执行已完成的工具。
-- [ ] 隔离厂商差异，对不支持的参数或能力提供明确反馈。
-- [ ] 保留 DeepSeek 作为首个真实 Provider，用独立模拟 Provider 验证协议的可替换性。
+| Area | Contract |
+| --- | --- |
+| Runtime | Validate beta on Node.js with ESM; explicitly declare the minimum supported version at release |
+| Model capabilities | Non-streaming text conversations and tool calling across the three providers; maintain a list of verified models, parameters, and capability differences |
+| Provider replacement | Allow provider replacement for new tasks or sessions without changing the agent loop; evaluate migration of history containing vendor-specific context separately |
+| Tool execution | Execute multiple tool calls from the same turn sequentially, in the order returned by the model; reject duplicate tool names during registration |
+| Sessions | Use in-memory history owned by Session; reject overlapping runs within the same Session |
+| Cancellation | Use cancellation signals to cooperatively stop requests and tool execution, stop scheduling further work, and define how tools that ignore cancellation are finalized |
+| Execution context | Available to tools and hooks by default; the caller explicitly chooses what information enters model input |
 
-### Agent：可靠的任务执行
+Streaming, cross-provider history migration, persistence, parallel tool scheduling, and automatic extension discovery are part of the future roadmap.
 
-- [ ] 明确工具定义和执行协议，支持同步、异步工具以及调用方提供的运行上下文。
-- [ ] 在执行前解析并校验参数，支持正确的工具 Schema。
-- [ ] 支持文本和结构化工具结果，明确交给模型时的序列化规则。
-- [ ] 将参数错误、未知工具和工具异常转换为匹配调用 ID 的错误结果，让模型可以修正后继续。
-- [ ] 区分工具失败、模型失败和运行终止，明确多工具调用在失败或取消后的消息配对规则。
-- [ ] 增加最大执行步数，定义一次模型请求及其工具执行的步骤边界。
-- [ ] 支持取消并传递取消信号，返回正常完成、步数耗尽、取消或失败等明确结果及本轮新增消息。
-- [ ] 暴露运行开始、完整回复、工具开始、工具结束和运行结束等有类型的事件。
-- [ ] 支持注入执行 hook 所需的调用点，通过事件或调用方日志接口报告过程。
+### Model: Unified Model Access
 
-### Harness：通用会话与运行装配
+- [ ] Define the responsibilities of `Model`, `Provider`, and Adapter. `Model` manages unified configuration and invocation, while Provider encapsulates vendor adaptation.
+- [ ] Support default generation parameters and per-request overrides, with clear ownership and merge rules for model identifiers and parameters.
+- [ ] Normalize non-streaming requests and responses, preserving reply content, tool calls, and explicit stop reasons.
+- [ ] Detect request failures, response failures, and output truncation, and expose clear outcomes to callers.
+- [ ] Define how refusals, unknown output types, and vendor context required to continue a conversation are handled. Avoid reporting errors or unsupported responses as successful empty replies.
+- [ ] Propagate cancellation signals to model requests. Define failure handling boundaries to avoid executing completed tools again.
+- [ ] Define request timeout and vendor SDK automatic retry settings, expose caller control, and distinguish these from the execution boundaries of an entire task.
+- [ ] Isolate vendor differences and provide explicit feedback for unsupported parameters or capabilities.
+- [ ] Keep the public Provider interface independent of concrete SDK clients, with vendor-specific Adapter input and output types encapsulated in each implementation.
+- [ ] Complete the built-in `DeepSeekProvider` to satisfy the unified invocation contract.
+- [ ] Implement a built-in `OpenAIProvider` supporting text conversations and tool calling.
+- [ ] Implement a built-in `AnthropicProvider` supporting text conversations and tool calling.
+- [ ] Provide a standalone mock provider for offline testing and contract substitution checks.
+- [ ] Maintain a list of verified models, common parameters, tool calling capabilities, and known limitations for all three providers. Distinguish portable capabilities from vendor-specific options.
 
-- [ ] 实现内存 Session，支持创建、多轮输入、清空和查询运行状态。
-- [ ] 通过受控访问或快照暴露历史，保持成功、失败、取消后的历史和工具结果一致。
-- [ ] 明确同一 Session 的并发行为，beta 拒绝重叠执行并提供清晰错误。
-- [ ] 通过显式参数组合模型、提示词、工具和运行选项，并将调用方上下文传给执行层。
-- [ ] 通过显式参数装配提示词和配置，将凭据来源与文件加载方式交由调用方决定。
-- [ ] 支持模型请求前、工具执行前和工具执行后的可等待 hook，允许补充上下文、检查或拒绝调用、记录结果。
-- [ ] 通过普通函数或对象注册工具和 hook，明确 hook 的顺序及失败语义。
-- [ ] 提供运行事件订阅、取消订阅、任务取消和会话资源释放接口。
+### Agent: Reliable Task Execution
 
-### 公共 SDK 与组合示例
+- [ ] Define contracts for tool definitions and execution, supporting synchronous and asynchronous tools along with caller-supplied execution context.
+- [ ] Parse and validate arguments before execution, using valid tool schemas.
+- [ ] Provide typed interfaces for tool arguments and results. Document the schema features supported by runtime validation, keeping type declarations and validation rules consistent.
+- [ ] Validate tool name uniqueness and execute tool calls from the same turn sequentially in the returned order.
+- [ ] Support text and structured tool results, with explicit rules for serialization into model input.
+- [ ] Convert invalid arguments, unknown tools, and tool exceptions into error results with matching call IDs so the model can correct the problem and continue.
+- [ ] Distinguish tool failures, model failures, and run termination. Define how messages and results remain paired when multiple tool calls fail or are cancelled.
+- [ ] Add a maximum step limit, with an explicit default, valid range, counting rules, and behavior when the limit is reached.
+- [ ] Support cancellation and propagate cancellation signals. Return explicit outcomes for completion, step limit exhaustion, cancellation, or failure, along with messages added during the run.
+- [ ] Expose typed events for run start, complete replies, tool start, tool end, and run end.
+- [ ] Provide injection points for execution hooks and report progress through events or a caller-supplied logging interface.
+- [ ] Define event ordering and how subscriber exceptions are handled. Emit exactly one run-end event for every exit path.
 
-- [ ] 提供框架包导出与 TypeScript 类型，允许按需使用 model、agent、harness 及共享协议。
-- [ ] 公共导入不运行演示，不读取必需的本地凭据文件，也不要求存在项目工作目录。
-- [ ] 提供独立模型调用、直接使用 Agent loop 的最小示例。
-- [ ] 提供使用 harness、自定义异步工具和内存会话的多轮示例。
-- [ ] 提供基于内存数据查询工具的助手示例，验证框架的通用性。
-- [ ] 提供替换模拟 Provider、订阅事件和注册 hook 的示例。
-- [ ] 所有示例使用公开接口，开发者能够通过组合能力扩展应用。
+### Harness: General Session Management and Runtime Assembly
 
-### 测试与 SDK 交付
+- [ ] Implement in-memory Session support for creation, multi-turn input, clearing history, and querying run status.
+- [ ] Expose history through controlled access or snapshots, maintaining consistent history and tool results after completion, failure, or cancellation.
+- [ ] Define concurrency behavior for a Session. Beta rejects overlapping runs with a clear error.
+- [ ] Assemble models, prompts, tools, and run options through explicit parameters, and pass caller-supplied context to the execution layer.
+- [ ] Assemble prompts and configuration through explicit parameters, leaving credential sources and file loading methods to the caller.
+- [ ] Define the default behavior when no system prompt is provided. Use one assembly point to avoid inserting duplicate system messages.
+- [ ] Support awaitable hooks before model requests, before tool execution, and after tool execution to add context, inspect or reject calls, and record results.
+- [ ] Register tools and hooks through ordinary functions or objects, with explicit hook ordering and failure semantics.
+- [ ] When a pre-execution hook rejects a tool call, skip execution and return an error result with the matching call ID. Include this behavior in session consistency checks.
+- [ ] Provide interfaces for event subscription, unsubscription, task cancellation, and session resource cleanup.
 
-- [ ] 建立无需网络或 API Key 的模拟 Provider，覆盖核心执行行为。
-- [ ] 验证参数错误后修正、同步与异步工具、结构化结果、工具异常和多工具调用配对。
-- [ ] 验证模型失败、输出截断、步数限制、取消及对应的结束结果。
-- [ ] 验证多轮历史、历史快照、重叠执行拒绝，以及事件和 hook 的关键顺序与失败语义。
-- [ ] 为 DeepSeek 提供可选的真实集成验证，离线测试与之独立。
-- [ ] 完成构建、类型检查、测试脚本、SDK 导出入口及类型声明。
-- [ ] 按 lighter-framework 产品定位整理包元数据与资源，发布前对齐 v0.9 beta 版本。
-- [ ] 在仓库外安装打包产物，验证公开导入与组合示例。
-- [ ] 补充 SDK 安装、显式配置、模块职责、运行语义、示例及 beta API 兼容性说明。
+### Public SDK and Composition Examples
 
-### 实施顺序
+- [ ] Export the framework package and TypeScript types, allowing selective use of model, agent, harness, and shared contracts.
+- [ ] Move the current demo to `examples/`. The SDK entry point exports public interfaces only; credentials are read and model requests are made when the caller runs an example.
+- [ ] Importing the public API does not run demos, require local credential files, or require a project working directory.
+- [ ] Provide minimal examples of standalone model invocation and direct use of the agent loop.
+- [ ] Provide configuration and provider-switching examples for DeepSeek, OpenAI, and Anthropic, with credentials supplied explicitly by the caller.
+- [ ] Provide a multi-turn example using harness, a custom asynchronous tool, and an in-memory session.
+- [ ] Provide an assistant example with an in-memory data lookup tool to validate the framework's general applicability.
+- [ ] Provide examples of substituting a mock provider, subscribing to events, and registering hooks.
+- [ ] Use public interfaces in all examples so developers can extend applications by composing framework capabilities.
 
-按依赖关系推进，每个阶段同时补充必要测试与示例。
+### Testing and SDK Delivery
 
-| 阶段 | 主要工作 | 可验收结果 |
+- [ ] Build a mock provider that requires neither network access nor an API key to test core execution behavior.
+- [ ] Verify recovery from invalid arguments, synchronous and asynchronous tools, structured results, tool exceptions, and matching results for multiple tool calls.
+- [ ] Verify model failures, output truncation, step limits, cancellation, and their corresponding run outcomes.
+- [ ] Verify multi-turn history, history snapshots, rejection of overlapping runs, and the ordering and failure semantics of events and hooks.
+- [ ] Verify duplicate tool names, sequential execution of multiple tools, hook rejection, subscriber exceptions, and run-end events across all exit paths.
+- [ ] Establish shared invocation contract tests for DeepSeek, OpenAI, and Anthropic, and test each provider's request and response adaptation separately.
+- [ ] Provide real integration tests for all three providers that can be run on demand. Before release, select at least one model per provider and verify both text conversations and a complete tool calling round trip. Record the model ID, validation date, and results. Keep the default test suite offline.
+- [ ] Add build, type-check, and test scripts, SDK exports, and type declarations.
+- [ ] Declare the minimum Node.js version and ESM support scope. Verify that the installed SDK runs directly without development tools such as tsx.
+- [ ] Align package metadata and resources with lighter-framework, and set the package version to match v0.9 beta before release.
+- [ ] Use a publishing allowlist and inspect package contents to exclude local credentials, logs, and temporary test files.
+- [ ] Install the packaged artifact outside the repository and verify public imports and composition examples.
+- [ ] Document SDK installation, explicit configuration, module responsibilities, execution semantics, examples, and beta API compatibility expectations.
+
+### Implementation Order
+
+Follow dependency order, adding the necessary tests and examples at each stage.
+
+| Stage | Main work | Acceptance outcome |
 | --- | --- | --- |
-| 1. 共享协议与 Model | 明确消息、工具及模型请求响应协议；完善配置、错误、取消和 Provider 适配 | model 可独立调用，模拟与真实 Provider 使用同一公共契约 |
-| 2. 可靠的 Agent loop | 工具校验、结果序列化、错误恢复、步数限制、取消和运行事件 | 模拟模型修正错误参数后成功调用异步工具，任务明确结束 |
-| 3. Harness 组合能力 | 内存会话、显式装配、调用方上下文、hook 和生命周期 | 数据查询助手示例连续多轮运行，历史正确，可观察并干预工具执行 |
-| 4. Framework beta 交付 | 公开导出、类型声明、文档、示例与打包验证 | 开发者在仓库外通过 SDK 独立使用各模块并组合 Agent 应用 |
+| 1. Shared contracts and Model | Define public contracts, configuration, errors, and cancellation; complete DeepSeek, then integrate OpenAI and Anthropic | Model can be used independently; all three built-in providers and the mock provider satisfy the same public contract, with capability differences documented |
+| 2. Reliable agent loop | Tool validation, sequential execution, result serialization, error recovery, step limits, cancellation, and run events | A mock model corrects invalid arguments and successfully calls an asynchronous tool; tool results are correctly paired and the task ends with an explicit outcome |
+| 3. Harness composition | In-memory sessions, explicit assembly, caller-supplied context, hooks, and lifecycle management | The data lookup assistant runs across multiple turns with correct history, and callers can observe and intervene in tool execution |
+| 4. Framework beta delivery | Public exports, type declarations, documentation, examples, and package validation | Developers can independently use modules and compose agent applications through the SDK outside the repository |
 
-### Beta 发布验收
+### Beta Release Acceptance Criteria
 
-- [ ] model、agent、harness 各有实际功能和可运行示例，且能按依赖关系独立使用。
-- [ ] 开发者按文档安装框架、显式配置模型，完成真实模型调用。
-- [ ] 通过公开 SDK 注册自定义异步工具、进行多轮对话、订阅事件及使用执行 hook。
-- [ ] 在 DeepSeek 与模拟 Provider 之间切换时保持 Agent loop 不变。
-- [ ] 参数错误、工具失败、模型失败、取消和步数耗尽都有明确且经过验证的行为。
-- [ ] 多轮会话及失败、取消后的消息和工具结果保持一致。
-- [ ] 数据查询助手示例验证框架可用于通用 Agent 应用。
-- [ ] 类型检查、离线测试和构建通过，打包产物在仓库外完成 SDK 验证。
+- [ ] Model, agent, and harness each provide functional capabilities and runnable examples, and can be used independently according to their dependency boundaries.
+- [ ] Each built-in provider—DeepSeek, OpenAI, and Anthropic—has recorded real text conversation and tool calling validation for at least one model. Developers can install and configure them explicitly by following the documentation.
+- [ ] Developers can register custom asynchronous tools, conduct multi-turn conversations, subscribe to events, and use execution hooks through the public SDK.
+- [ ] New tasks or sessions can switch between the three built-in providers and the mock provider without changing the agent loop.
+- [ ] Invalid arguments, tool failures, model failures, cancellation, and step limit exhaustion have explicit, verified behavior.
+- [ ] Messages and tool results remain consistent across multiple turns and after failures or cancellation.
+- [ ] Tool ordering, hook rejection, event ordering, and exit behavior follow the contracts above. System prompts are assembled exactly once as specified.
+- [ ] The data lookup assistant example demonstrates that the framework supports general-purpose agent applications.
+- [ ] Type checking, offline tests, and builds pass. The packaged artifact is validated outside the repository in the declared Node.js environment, imports without demo side effects, does not depend on tsx, and contains no real credentials.
 
-## lighter-framework 后续路线图
+## lighter-framework Future Roadmap
 
-根据 beta 的实际使用反馈逐步推进：
+Expand based on feedback from beta usage:
 
-- 流式输出、工具参数增量组装、更多真实 Provider 和用量信息。
-- 会话存储接口、文件持久化和恢复、上下文压缩。
-- 更丰富的运行策略、中途追加指令、排队和多 Agent 编排。
-- 通用资源加载与扩展机制，并允许应用自定义配置发现规则。
+- Streaming output, incremental tool argument assembly, and usage information.
+- Additional built-in providers, including Gemini and OpenRouter.
+- Session storage interfaces, file persistence and recovery, and context compaction.
+- Cross-provider history migration, parallel tool scheduling, richer execution strategies, additional instructions during a run, queuing, and multi-agent orchestration.
+- General resource loading and extension mechanisms, with application-defined configuration discovery rules.
 
-以 LangChain 作为开发框架的定位参照；RAG、向量数据库集成和工作流等更广泛能力，在有具体场景时单独评估。
-
+LangChain is a reference for the framework's product direction. Broader capabilities such as RAG, vector database integrations, and workflows will be evaluated separately when concrete use cases arise.
