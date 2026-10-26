@@ -14,14 +14,17 @@ const deepseekProvider = new DeepSeekProvider(apiKey, "deepseek-flash");
 const model = new Model(deepseekProvider);
 
 const additionTool = new Tool({
+    type: "function",
     name: "addition",
     description: "Adds two numbers together.",
-    parameterSchema: {
+    parameters: {
+        type: "object",
         a: { type: "number" },
         b: { type: "number" }
     },
+    strict: false,
     func: (args) => {
-        // console.log(`Tool 'addition' called with arguments: ${JSON.stringify(args)}`);
+        console.log(`Tool 'addition' called with arguments: ${JSON.stringify(args)}`);
         return args.a + args.b;
     }
 });

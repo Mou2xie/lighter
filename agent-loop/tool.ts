@@ -1,22 +1,20 @@
 import { ToolMessage } from "../model/types/messages.js";
+import type { ToolDefinition } from "../model/types/tool-definition.js";
 
-export interface ToolConfig {
-    name: string;
-    description: string;
-    parameterSchema: Record<string, { type: string }>;
+export interface ToolConfig extends ToolDefinition {
     func(args: Record<string, any>): any;
 }
 
 export class Tool {
     readonly name: string;
     readonly description: string;
-    readonly parameterSchema: Record<string, { type: string }>;
+    readonly parameterSchema: Record<string, unknown>;
     readonly func: (args: Record<string, any>) => any;
 
     constructor(config: ToolConfig) {
         this.name = config.name;
         this.description = config.description;
-        this.parameterSchema = config.parameterSchema;
+        this.parameterSchema = config.parameters;
         this.func = config.func;
     }
 

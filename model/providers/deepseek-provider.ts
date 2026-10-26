@@ -3,6 +3,7 @@ import Openai from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import type { BaseMessages, ToolCall } from "../types/messages.js";
 import { AssistantMessage } from "../types/messages.js";
+import { ToolDefinition } from "../types/tool-definition.js";
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
 type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
@@ -20,11 +21,12 @@ export class DeepSeekProvider implements Provider {
         this.modelID = modelID;
     }
 
-    async invoke(baseMessages: BaseMessages): Promise<AssistantMessage> {
+    async invoke(baseMessages: BaseMessages, tools: ToolDefinition[]): Promise<AssistantMessage> {
 
         const response = await this.provider.responses.create({
             model: this.modelID,
             input: deepseekMessageAdapter.toInput(baseMessages),
+            tools,
         });
 
         return deepseekMessageAdapter.fromResponse(response);
