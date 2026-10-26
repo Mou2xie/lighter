@@ -97,5 +97,13 @@ export class Tool {
         });
     }
 
-
+    getSpec(): ToolSpec {
+        return {
+            type: "function",
+            name: this.name,
+            description: this.description,
+            parameters: this.parameters,
+            strict: true
+        }
+    }
 }

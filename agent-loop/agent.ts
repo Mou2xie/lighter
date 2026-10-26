@@ -1,6 +1,5 @@
 import { Model } from "../model/model.js";
 import { loadMarkdown } from "../libs/markdown-loader.js";
-import { createToolSpec } from "../libs/tool-spec-creater.js";
 import { SystemMessage, UserMessage, BaseMessages, Tool } from "../core/protocol.js";
 
 export interface AgentConfig {
@@ -35,7 +34,7 @@ export class Agent {
 
         // Agent core loop
         while (true) {
-            const response = await this.model.invoke(this.agentMessages, this.tools.map(tool => createToolSpec(tool))); // Invoke the model with the current agent messages and tool spec.
+            const response = await this.model.invoke(this.agentMessages, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current agent messages and tool spec.
 
             this.agentMessages.push(response); // Append the assistant's response to the agent messages.
 
@@ -43,7 +42,7 @@ export class Agent {
             if (response.toolCalls && response.toolCalls.length > 0) {
                 for (const toolCall of response.toolCalls) {
                     // Handle tool calls
-                    const tool = this.tools.find(t => t.name === toolCall.toolName);
+                    const tool = this.tools.find(tool => tool.name === toolCall.toolName);
                     if (!tool) {
                         throw new Error(`Tool ${toolCall.toolName} not found.`);
                     }
