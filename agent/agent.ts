@@ -1,5 +1,5 @@
 import { Model } from "../model/model.js";
-import { SystemMessage, UserMessage, BaseMessages, Tool } from "../core/protocol.js";
+import { SystemMessage, UserMessage, BaseMessages, ToolMessage, Tool } from "../core/protocol.js";
 
 export interface AgentConfig {
     model: Model;
@@ -34,12 +34,38 @@ export class Agent {
             // handle tool calls if any.
             if (response.toolCalls && response.toolCalls.length > 0) {
                 for (const toolCall of response.toolCalls) {
-                    // Handle tool calls
+                    // Find the tool by name.
                     const tool = this.tools.find(tool => tool.name === toolCall.toolName);
+                    // If tool is not found, push a ToolMessage indicating the error and continue to the next tool call.
                     if (!tool) {
-                        throw new Error(`Tool ${toolCall.toolName} not found.`);
+                        this.agentMessages.push(new ToolMessage({
+                            callId: toolCall.callId,
+                            toolName: toolCall.toolName,
+                            toolOutput: `Tool ${toolCall.toolName} not found.`,
+                            isError: true
+                        }));
+
+                        continue;
                     }
-                    const toolResult = await tool.execute(JSON.parse(toolCall.arguments), { callId: toolCall.callId });
+
+                    let args: unknown;
+
+                    try {
+                        args = JSON.parse(toolCall.arguments);
+                    } catch (error) {
+                        this.agentMessages.push(new ToolMessage({
+                            callId: toolCall.callId,
+                            toolName: toolCall.toolName,
+                            toolOutput: `Invalid JSON arguments: ${String(error)}`,
+                            isError: true,
+                        }));
+
+                        continue;
+                    }
+
+                    const toolResult = await tool.execute(args, {
+                        callId: toolCall.callId,
+                    });
                     this.agentMessages.push(toolResult);
                 }
             } else {

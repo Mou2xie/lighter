@@ -1,3 +1,4 @@
+import * as z from "zod";
 
 export class SystemMessage {
     readonly role = "system" as const;
@@ -70,14 +71,14 @@ export interface ToolSpec {
 interface ToolConfig {
     name: string;
     description: string;
-    parameters: Record<string, any>;
+    parameters: z.ZodObject;
     func(args: Record<string, any>): Promise<any>;
 }
 
 export class Tool {
     readonly name: string;
     readonly description: string;
-    readonly parameters: Record<string, any>;
+    readonly parameters: z.ZodObject;
     readonly func: (args: Record<string, any>) => Promise<any>;
 
     constructor(config: ToolConfig) {
@@ -87,14 +88,25 @@ export class Tool {
         this.func = config.func;
     }
 
-    async execute(args: Record<string, any>, options: { callId: string }): Promise<ToolMessage> {
-        const result = await this.func(args);
-        return new ToolMessage({
-            callId: options.callId,
-            toolName: this.name,
-            toolOutput: String(result),
-            isError: false
-        });
+    async execute(args: unknown, options: { callId: string }): Promise<ToolMessage> {
+        try {
+            const validatedArgs = this.parameters.parse(args);
+            const result = await this.func(validatedArgs);
+            return new ToolMessage({
+                callId: options.callId,
+                toolName: this.name,
+                toolOutput: String(result),
+                isError: false
+            });
+        } catch (error) {
+            // If the tool execution fails, return a ToolMessage indicating the error.
+            return new ToolMessage({
+                callId: options.callId,
+                toolName: this.name,
+                toolOutput: String(error),
+                isError: true
+            });
+        }
     }
 
     getSpec(): ToolSpec {
@@ -102,7 +114,7 @@ export class Tool {
             type: "function",
             name: this.name,
             description: this.description,
-            parameters: this.parameters,
+            parameters: z.toJSONSchema(this.parameters, { io: "input" }),
             strict: false,
         }
     }
