@@ -33,10 +33,11 @@ export class Agent {
 
             // handle tool calls if any.
             if (response.toolCalls && response.toolCalls.length > 0) {
+
                 for (const toolCall of response.toolCalls) {
-                    // Find the tool by name.
+
+                    // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
                     const tool = this.tools.find(tool => tool.name === toolCall.toolName);
-                    // If tool is not found, push a ToolMessage indicating the error and continue to the next tool call.
                     if (!tool) {
                         this.agentMessages.push(new ToolMessage({
                             callId: toolCall.callId,
@@ -44,12 +45,11 @@ export class Agent {
                             toolOutput: `Tool ${toolCall.toolName} not found.`,
                             isError: true
                         }));
-
                         continue;
                     }
 
+                    // Parse the arguments for the tool call. If fails, push an error ToolMessage and continue to the next tool call.
                     let args: unknown;
-
                     try {
                         args = JSON.parse(toolCall.arguments);
                     } catch (error) {
@@ -59,10 +59,10 @@ export class Agent {
                             toolOutput: `Invalid JSON arguments: ${String(error)}`,
                             isError: true,
                         }));
-
                         continue;
                     }
 
+                    // Execute the tool and push the result to the agent messages.
                     const toolResult = await tool.execute(args, {
                         callId: toolCall.callId,
                     });

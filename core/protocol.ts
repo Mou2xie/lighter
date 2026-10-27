@@ -1,5 +1,8 @@
 import * as z from "zod";
 
+// Messages
+// ---------------------------------------------------------------------------------
+
 export class SystemMessage {
     readonly role = "system" as const;
     constructor(readonly content: string) { }
@@ -60,37 +63,39 @@ export type BaseMessage = SystemMessage | UserMessage | AssistantMessage | ToolM
 export type BaseMessages = BaseMessage[];
 
 
+// Tool
+// ---------------------------------------------------------------------------------
 export interface ToolSpec {
     type: "function";
     name: string;
     description: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>; // JSON Schema for the tool parameters. Property name is fixed here.
     strict: boolean;
 }
 
-interface ToolConfig {
+interface ToolConfig<ZSchema extends z.ZodObject> {
     name: string;
     description: string;
-    parameters: z.ZodObject;
-    func(args: Record<string, any>): Promise<any>;
+    parametersZodSchema: ZSchema;
+    func(args: z.infer<ZSchema>): unknown | Promise<unknown>;
 }
 
-export class Tool {
+export class Tool<ZSchema extends z.ZodObject = z.ZodObject> {
     readonly name: string;
     readonly description: string;
-    readonly parameters: z.ZodObject;
-    readonly func: (args: Record<string, any>) => Promise<any>;
+    readonly parametersZodSchema: ZSchema;
+    readonly func: (args: z.infer<ZSchema>) => unknown | Promise<unknown>;
 
-    constructor(config: ToolConfig) {
+    constructor(config: ToolConfig<ZSchema>) {
         this.name = config.name;
         this.description = config.description;
-        this.parameters = config.parameters;
+        this.parametersZodSchema = config.parametersZodSchema;
         this.func = config.func;
     }
 
     async execute(args: unknown, options: { callId: string }): Promise<ToolMessage> {
         try {
-            const validatedArgs = this.parameters.parse(args);
+            const validatedArgs = this.parametersZodSchema.parse(args); // Validate the arguments using Zod schema.
             const result = await this.func(validatedArgs);
             return new ToolMessage({
                 callId: options.callId,
@@ -114,7 +119,7 @@ export class Tool {
             type: "function",
             name: this.name,
             description: this.description,
-            parameters: z.toJSONSchema(this.parameters, { io: "input" }),
+            parameters: z.toJSONSchema(this.parametersZodSchema, { io: "input" }), // Convert Zod schema to JSON Schema.
             strict: false,
         }
     }

@@ -24,7 +24,7 @@ const model = new Model(deepseekProvider);
 const additionTool = new Tool({
     name: "addition",
     description: "Adds two numbers together.",
-    parameters: z.strictObject({
+    parametersZodSchema: z.strictObject({
         a: z.number().describe("The first number to add."),
         b: z.number().describe("The second number to add."),
     }),
