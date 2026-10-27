@@ -15,10 +15,11 @@ The repository is currently a single-package prototype with the following founda
 - [`core/protocol.ts`](./core/protocol.ts): Messages, tool calls, tool results, and basic tool definitions.
 - [`model/`](./model/model.ts): `Model`, `Provider`, non-streaming DeepSeek integration, and message adaptation.
 - [`agent/agent.ts`](./agent/agent.ts): A basic execution loop that awaits asynchronous tool results.
+- [`test/`](./test/README.md): Offline tests for tools, the agent loop, model substitution, and DeepSeek request/response adaptation, plus tool argument type checks.
 - [`index.ts`](./index.ts): An addition demo that manually assembles a model and a tool.
 - The demo reads its API key from an environment variable. Agent accepts an explicit system prompt and provides a short built-in default.
 
-A complete harness, public SDK exports, and a test suite have not been implemented yet. The checklists below describe target capabilities; the existing prototype does not mean those capabilities have passed full acceptance testing.
+A complete harness and public SDK exports have not been implemented yet. The initial offline test suite covers the implemented prototype. The checklists below describe target capabilities; passing these tests does not mean the full beta acceptance criteria have been met.
 
 ## Run the Current Prototype Locally
 
@@ -45,10 +46,30 @@ The start script uses Node.js to load the optional `.env` file, then runs `index
 Run the type checker:
 
 ```bash
-pnpm exec tsc --noEmit
+pnpm typecheck
 ```
 
-The current `test` script is still a placeholder. The test suite will be added as part of this milestone.
+Run the offline tests, or run both type checking and tests:
+
+```bash
+pnpm test
+pnpm check
+```
+
+These commands do not load `.env`, require real API keys, or call real model services. See [test/README.md](./test/README.md) for coverage, file layout, and focused test commands. `pnpm start` remains the real-API demo and is separate from testing.
+
+## Testing and Collaboration Rules
+
+These rules apply to future agents and contributors working on tests:
+
+- **Ownership:** Keep all test code, fixtures, helpers, compile-only assertions, and test-specific resources under the root `test/` directory. Test work may update `package.json` test/check commands and testing documentation in this README and `test/README.md`.
+- **Production changes:** The user maintains business implementation. A request to write or run tests does not authorize changing `core/`, `agent/`, `model/`, `harness/`, `index.ts`, or other production files. Report production defects and propose fixes; modify production only when the user explicitly authorizes it.
+- **Offline by default:** Do not load local credentials or import the real-API demo entry point. Import framework modules directly and use fresh test instances, test-only tool functions, finite scripted replies, and dummy API keys. Each runtime test must import the offline guard. Mock HTTP before constructing real providers; never enable a live fallback. Real API integration tests require a separate, explicitly authorized run and must not join the default suite.
+- **Isolation:** Do not operate on real business data or external services. Keep temporary test resources under `test/` or an OS temporary directory and clean them up. Restore test mocks and global changes after each test; provider mocks restore to the offline network guard. Tests must not depend on execution order or mutate shared fixtures.
+- **Assertions:** Verify agreed public behavior and failure recovery. Prefer semantic field checks over full generated-schema snapshots, and controlled promises over sleeps for ordering checks. Add compile-only assertions when needed to protect tool argument inference.
+- **Failures:** When tests reveal a production defect, report the failing command, trigger, expected behavior, and actual behavior. Preserve meaningful failing assertions; do not weaken or skip tests or silently fix production code to make the suite pass. Correct mistaken test expectations against the agreed contract, not simply against the implementation.
+- **Scope:** Test implemented capabilities as they are added. Keep unsupported roadmap capabilities explicit rather than claiming beta completion. The Agent currently has no maximum step count; the test-runner timeout only detects stalled tests and is not a production execution policy.
+- **Verification:** After changes, run `pnpm check` (or focused tests during development followed by the full check) and report the result. Runtime tests and TypeScript checks are separate requirements. Do not claim that offline fixtures verify real provider availability or model compatibility.
 
 ## lighter-framework v0.9 Beta Milestone
 
@@ -159,13 +180,16 @@ Streaming, cross-provider history migration, persistence, parallel tool scheduli
 ### Testing and SDK Delivery
 
 - [x] Build a mock provider that requires neither network access nor an API key to test core execution behavior.
-- [ ] Verify recovery from invalid arguments, synchronous and asynchronous tools, structured results, tool exceptions, and matching results for multiple tool calls.
-- [ ] Verify model failures, output truncation, cancellation, and their corresponding run outcomes.
+- [x] Verify recovery from invalid arguments, synchronous and asynchronous tools, tool exceptions, and matching results for multiple tool calls.
+- [ ] Verify structured tool results and their serialization into model input.
+- [x] Verify that model request failures propagate and completed tool results remain in history without re-execution.
+- [ ] Verify response failures, output truncation, cancellation, and their corresponding run outcomes.
 - [ ] Verify multi-turn history, history snapshots, rejection of overlapping runs, and the ordering and failure semantics of events and hooks.
 - [ ] Verify duplicate tool names, sequential execution of multiple tools, hook rejection, subscriber exceptions, and run-end events across all exit paths.
 - [ ] Establish shared invocation contract tests for DeepSeek, OpenAI, and Anthropic, and test each provider's request and response adaptation separately.
 - [ ] Provide real integration tests for all three providers that can be run on demand. Before release, select at least one model per provider and verify both text conversations and a complete tool calling round trip. Record the model ID, validation date, and results. Keep the default test suite offline.
-- [ ] Add build, type-check, and test scripts, SDK exports, and type declarations.
+- [x] Add type-check and offline test scripts.
+- [ ] Add build scripts, SDK exports, and type declarations.
 - [ ] Declare the minimum Node.js version and ESM support scope. Verify that the installed SDK runs directly without development tools such as tsx.
 - [ ] Align package metadata and resources with lighter-framework, and set the package version to match v0.9 beta before release.
 - [ ] Use a publishing allowlist and inspect package contents to exclude local credentials, logs, and temporary test files.
