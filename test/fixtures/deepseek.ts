@@ -11,7 +11,7 @@ type WireResponse = Pick<Response,
     "id" | "object" | "created_at" | "model" | "status" | "error" | "incomplete_details" | "output"
 >;
 
-export function response(output: Response["output"]): WireResponse {
+export function response(output: Response["output"], overrides: Partial<WireResponse> = {}): WireResponse {
     return {
         id: "resp_test",
         object: "response",
@@ -21,6 +21,7 @@ export function response(output: Response["output"]): WireResponse {
         error: null,
         incomplete_details: null,
         output,
+        ...overrides,
     };
 }
 

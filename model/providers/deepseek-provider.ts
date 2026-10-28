@@ -1,8 +1,9 @@
 import type { Provider } from "./provider.js";
-import Openai from "openai";
+import Openai, { type OpenAIError } from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import type { BaseMessages, ToolCall, ToolSpec } from "../../core/protocol.js";
 import { AssistantMessage } from "../../core/protocol.js";
+import { ModelError, type ModelErrorCode } from "../errors.js";
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
 type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
@@ -21,14 +22,82 @@ export class DeepSeekProvider implements Provider {
     }
 
     async invoke(baseMessages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+        try {
+            const response = await this.client.responses.create({
+                model: this.modelID,
+                input: deepseekMessageAdapter.toInput(baseMessages),
+                tools: toolSpecs,
+            });
+            deepseekErrorAdapter.checkResponseStatus(response);
+            return deepseekMessageAdapter.fromResponse(response);
+        } catch (error) {
+            if (error instanceof Openai.OpenAIError) {
+                throw deepseekErrorAdapter.toModelError(error);
+            }
+            throw error;
+        }
+    }
+}
 
-        const response = await this.client.responses.create({
-            model: this.modelID,
-            input: deepseekMessageAdapter.toInput(baseMessages),
-            tools: toolSpecs,
+// Adapter for error checking and converting DeepSeek errors to ModelError.
+const deepseekErrorAdapter = {
+
+    // Check the response status and throw ModelError for non-completed statuses.
+    checkResponseStatus: (response: Response): void => {
+        switch (response.status) {
+            case "completed":
+                return;
+
+            case "failed":
+                throw new ModelError(
+                    `DeepSeek generation failed: ${response.error?.message ?? "No error details provided."}`,
+                    "bad_response",
+                    { responseStatus: response.status },
+                );
+
+            case "incomplete":
+                throw new ModelError(
+                    `DeepSeek generation is incomplete: ${response.incomplete_details?.reason ?? "No reason provided."}`,
+                    "bad_response",
+                    { responseStatus: response.status },
+                );
+
+            case "cancelled":
+                throw new ModelError("DeepSeek generation was cancelled.", "aborted", {
+                    responseStatus: response.status,
+                });
+
+            default:
+                throw new ModelError(`Unexpected DeepSeek response status: ${response.status}`, "bad_response", {
+                    responseStatus: response.status,
+                });
+        }
+
+    },
+
+    // Convert OpenAIError to ModelError with appropriate ModelErrorCode.
+    toModelError(error: OpenAIError): ModelError {
+        let code: ModelErrorCode = "unknown";
+
+        if (error instanceof Openai.APIUserAbortError) {
+            code = "aborted";
+        } else if (error instanceof Openai.APIConnectionError) {
+            code = "network_error";
+        } else if (error instanceof Openai.APIError) {
+            if (error.status === 401 || error.status === 403) {
+                code = "auth_error";
+            } else if (error.status === 429) {
+                code = "rate_limit";
+            } else if (error.status !== undefined && error.status >= 500) {
+                code = "server_error";
+            } else if (error.status !== undefined && error.status >= 400) {
+                code = "invalid_request";
+            }
+        }
+
+        return new ModelError(`DeepSeek request failed: ${error.message}`, code, {
+            status: error instanceof Openai.APIError ? error.status : undefined,
         });
-
-        return deepseekMessageAdapter.fromResponse(response);
     }
 }
 

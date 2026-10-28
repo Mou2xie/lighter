@@ -5,6 +5,7 @@ import * as z from "zod";
 import { Agent } from "../agent/agent.js";
 import { AssistantMessage, SystemMessage, Tool, ToolMessage, UserMessage } from "../core/protocol.js";
 import { Model } from "../model/model.js";
+import { ModelError } from "../model/errors.js";
 import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
 import { call, reasoning, response, text } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
@@ -126,8 +127,9 @@ test("HTTP authentication failures reject instead of becoming successful empty r
     const http = mockHttp(t, [{ status: 401, body: { error: { message: "Invalid test key", type: "authentication_error", code: "invalid_api_key" } } }]);
 
     await assert.rejects(makeProvider().invoke([new UserMessage("Hi")], []), error => {
-        assert.ok(error instanceof Error);
-        assert.equal(Reflect.get(error, "status"), 401);
+        assert.ok(error instanceof ModelError);
+        assert.equal(error.code, "auth_error");
+        assert.equal(error.status, 401);
         assert.match(error.message, /Invalid test key/);
         return true;
     });

@@ -14,6 +14,7 @@ The repository is currently a single-package prototype with the following founda
 
 - [`core/protocol.ts`](./core/protocol.ts): Messages, tool calls, tool results, and basic tool definitions.
 - [`model/`](./model/model.ts): `Model`, `Provider`, non-streaming DeepSeek integration, and message adaptation.
+- [`model/errors.ts`](./model/errors.ts): Shared `ModelError` classification with failure messages and HTTP/response status details. DeepSeek checks response status before converting replies or executing tool calls.
 - [`agent/agent.ts`](./agent/agent.ts): A basic execution loop that awaits asynchronous tool results.
 - [`test/`](./test/README.md): Offline tests for tools, the agent loop, model substitution, and DeepSeek request/response adaptation, plus tool argument type checks.
 - [`index.ts`](./index.ts): An addition demo that manually assembles a model and a tool.
