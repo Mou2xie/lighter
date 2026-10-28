@@ -14,7 +14,7 @@ export class Agent {
 
     constructor(agentConfig: AgentConfig) {
         this.model = agentConfig.model;
-        this.tools = agentConfig?.tools ?? [];
+        this.tools = agentConfig.tools ?? [];
 
         // If system prompt is provided, push it into the agent messages, otherwise use default system prompt.
         agentConfig.systemPrompt ? this.agentMessages.push(agentConfig.systemPrompt) : this.agentMessages.push(new SystemMessage("You are a helpful assistant."));
