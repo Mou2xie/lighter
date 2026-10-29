@@ -3,6 +3,7 @@ import { Model } from "./model/model.js";
 import { AgentLoop } from "./agent-loop/agent-loop.js";
 import { Tool, UserMessage, SystemMessage, type BaseMessages } from "./core/protocol.js";
 import * as z from "zod";
+import { Session } from "./harness/session.js";
 
 const apiKey = process.env.DEEPSEEK_API_KEY;
 if (!apiKey) {
@@ -32,21 +33,17 @@ const agentLoop = new AgentLoop({
         `)
 });
 
-const session: {
-    sessionID: string;
-    conversationHistory: BaseMessages;
-} = {
-    sessionID: "session-1",
-    conversationHistory: [],
-};
+const session = new Session();
 
 const userMessage = new UserMessage("What is 14+24? Please explain the steps to solve it.");
 
-session.conversationHistory.push(userMessage);
+session.addMessage(userMessage);
 
-const agentLoopResult = await agentLoop.runLoop(session.conversationHistory);
+const agentLoopResult = await agentLoop.runLoop(session.getConversationHistory());
 
-session.conversationHistory.push(...agentLoopResult.addedMessages);
+session.addMessage(agentLoopResult.addedMessages);
+
+console.log("Conversation History:", session.getConversationHistory());
 
 if (agentLoopResult.status === "completed") {
     console.log("Agent loop completed successfully.");

@@ -44,8 +44,7 @@ export class AgentLoop {
             let assistantMessage: AssistantMessage;
 
             try {
-                assistantMessage = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current loop messages and tool spec.
-                loopMessages.push(assistantMessage); // Append the model response to the context messages.
+                assistantMessage = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec()));
             } catch (error) {
                 // If the model invocation fails, return a failed result with the error and any messages generated so far.
                 return {
@@ -54,6 +53,8 @@ export class AgentLoop {
                     error,
                 };
             }
+
+            loopMessages.push(assistantMessage); // Append the model response to the context messages.
 
             // handle tool calls if any.
             if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
