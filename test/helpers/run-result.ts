@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
+import type { AgentLoopResult } from "../../agent-loop/agent-loop.js";
 import type { BaseMessages } from "../../core/protocol.js";
 
-// M1 target contract, not an adapter around the production API. Tests using
-// this assertion intentionally fail until AgentLoop returns failed run results.
-interface FailedRunResult {
-    status: "failed";
-    addedMessages: BaseMessages;
-    error: unknown;
+// Assertions validate the public run result; they do not repair failures or
+// adapt rejected runs into successful test outcomes.
+type FailedRunResult = Extract<AgentLoopResult, { status: "failed" }>;
+
+export function assertCompletedRun(result: AgentLoopResult): BaseMessages {
+    assert.ok(result.status === "completed", "Expected a completed run");
+    assert.ok(Array.isArray(result.addedMessages));
+    return result.addedMessages;
 }
 
 export function assertFailedRunOutcome(outcome: PromiseSettledResult<unknown>): FailedRunResult {

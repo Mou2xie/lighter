@@ -9,6 +9,7 @@ import { ModelError } from "../model/errors.js";
 import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
 import { call, reasoning, response, text } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
+import { assertCompletedRun } from "./helpers/run-result.js";
 
 function makeProvider() {
     return new DeepSeekProvider("offline-test-key", "deepseek-flash");
@@ -147,7 +148,7 @@ test("AgentLoop returns the complete generated increment through the actual SDK 
     const loop = new AgentLoop({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
 
     const inputMessages = [new UserMessage("31 + 17?")];
-    const messages = await loop.runLoop(inputMessages);
+    const messages = assertCompletedRun(await loop.runLoop(inputMessages));
 
     http.assertConsumed();
     assert.equal(executions, 1);

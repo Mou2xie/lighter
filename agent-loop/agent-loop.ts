@@ -1,10 +1,19 @@
 import { Model } from "../model/model.js";
-import { SystemMessage, BaseMessages, ToolMessage, Tool } from "../core/protocol.js";
+import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage, Tool } from "../core/protocol.js";
 
 export interface AgentLoopConfig {
     model: Model;
     tools?: Tool[];
     systemPrompt?: SystemMessage;
+}
+
+export type AgentLoopResult = {
+    status: "completed";
+    addedMessages: BaseMessages;
+} | {
+    status: "failed";
+    addedMessages: BaseMessages;
+    error: unknown;
 }
 
 export class AgentLoop {
@@ -18,22 +27,32 @@ export class AgentLoop {
         this.systemPrompt = config.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
     }
 
-    async runLoop(inputMessages: BaseMessages): Promise<BaseMessages> {
+    async runLoop(inputMessages: BaseMessages): Promise<AgentLoopResult> {
 
         // Merge system prompt and input messages to form the context for this run.
-        const contextMessages: BaseMessages = [
+        const loopMessages: BaseMessages = [
             this.systemPrompt,
             ...inputMessages
         ];
 
         // Store the initial message count for slicing the new messages generated in this run later.
-        const initialMessageCount = contextMessages.length;
+        const initialMessageCount = loopMessages.length;
 
         // Agent core loop
         while (true) {
-            const assistantMessage = await this.model.invoke(contextMessages, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current agent messages and tool spec.
 
-            contextMessages.push(assistantMessage); // Append the model response to the context messages.
+            let assistantMessage: AssistantMessage;
+
+            try {
+                assistantMessage = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current loop messages and tool spec.
+                loopMessages.push(assistantMessage); // Append the model response to the context messages.
+            } catch (error) {
+                return {
+                    status: "failed",
+                    addedMessages: loopMessages.slice(initialMessageCount),
+                    error,
+                };
+            }
 
             // handle tool calls if any.
             if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
@@ -43,7 +62,7 @@ export class AgentLoop {
                     // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
                     const tool = this.tools.find(tool => tool.name === toolCall.toolName);
                     if (!tool) {
-                        contextMessages.push(new ToolMessage({
+                        loopMessages.push(new ToolMessage({
                             callId: toolCall.callId,
                             toolName: toolCall.toolName,
                             toolOutput: `Tool ${toolCall.toolName} not found.`,
@@ -57,7 +76,7 @@ export class AgentLoop {
                     try {
                         parsedArgs = JSON.parse(toolCall.arguments);
                     } catch (error) {
-                        contextMessages.push(new ToolMessage({
+                        loopMessages.push(new ToolMessage({
                             callId: toolCall.callId,
                             toolName: toolCall.toolName,
                             toolOutput: `Invalid JSON arguments: ${String(error)}`,
@@ -70,7 +89,7 @@ export class AgentLoop {
                     const toolResultMessage = await tool.execute(parsedArgs, {
                         callId: toolCall.callId,
                     });
-                    contextMessages.push(toolResultMessage);
+                    loopMessages.push(toolResultMessage);
                 }
             } else {
                 // No more tool calls means the agent has job done, it's safe to quit loop and return the response. 
@@ -78,7 +97,11 @@ export class AgentLoop {
             }
         };
         // return new messages generated in this run, excluding the initial messages.
-        const addedMessages = contextMessages.slice(initialMessageCount);
-        return addedMessages;
+        const addedMessages = loopMessages.slice(initialMessageCount);
+
+        return {
+            status: "completed",
+            addedMessages
+        }
     }
 }

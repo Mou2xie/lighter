@@ -44,8 +44,15 @@ const userMessage = new UserMessage("What is 14+24? Please explain the steps to 
 
 session.conversationHistory.push(userMessage);
 
-const addedMessages = await agentLoop.runLoop(session.conversationHistory);
+const agentLoopResult = await agentLoop.runLoop(session.conversationHistory);
 
-session.conversationHistory.push(...addedMessages);
+session.conversationHistory.push(...agentLoopResult.addedMessages);
 
-console.log(session.conversationHistory);
+if (agentLoopResult.status === "completed") {
+    console.log("Agent loop completed successfully.");
+} else {
+    console.error("Agent loop failed:", agentLoopResult.error);
+}
+
+
+

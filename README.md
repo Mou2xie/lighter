@@ -8,10 +8,10 @@ The project is a prototype; it does not yet provide an installable public SDK.
 
 - [`core/protocol.ts`](./core/protocol.ts): messages, tool definitions, Zod argument validation, and synchronous/asynchronous tool execution.
 - [`model/`](./model/model.ts): non-streaming DeepSeek integration, message adaptation, error classification, and an offline mock provider.
-- [`agent-loop/agent-loop.ts`](./agent-loop/agent-loop.ts): sequential model/tool execution using local context; `runLoop()` returns the messages generated during the run.
+- [`agent-loop/agent-loop.ts`](./agent-loop/agent-loop.ts): sequential model/tool execution using local context; `runLoop()` returns a completion/failure result with the messages generated during the run.
 - [`index.ts`](./index.ts): a live addition demo with externally maintained conversation history.
 
-Session, hooks, cancellation, streaming, and additional real providers are planned. Model failures currently throw without returning partial run progress. Tests use the current AgentLoop API; three enabled M1 regressions fail until explicit failure results and partial progress are implemented. See [test/README.md](./test/README.md).
+Session, hooks, cancellation, streaming, and additional real providers are planned. AgentLoop returns typed completion/failure results, retaining generated messages and the original error on model failure. Tests cover caller-managed continuation without repeating a completed tool. See [test/README.md](./test/README.md).
 
 ## Local Development
 
@@ -62,14 +62,14 @@ Complete these in order, with offline tests and a small example at each stage.
 
 | Milestone | Scope | Acceptance |
 | --- | --- | --- |
-| **M1. AgentLoop failure handling — next** | Typed run outcomes, partial progress, continuation semantics, and test migration | A tool succeeds before a later model failure; the caller receives the error and completed tool records and can continue without repeating the tool |
+| **M1. AgentLoop failure handling** | Typed run outcomes, partial progress, continuation semantics, and test migration | A tool succeeds before a later model failure; the caller receives the error and completed tool records and can continue without repeating the tool |
 | **M2. In-memory Session** | History ownership, input, snapshots, clearing, run status, and cancellation entry points | Multi-turn history is saved once; Sessions are isolated, one Session rejects overlapping runs, and active-run cleanup is defined |
 | **M3. Hooks / middleware** | Awaitable hooks before model requests and before/after tools; typed observation events and caller context | Hook rejection produces a paired tool result; ordering, hook failures, and observer errors have explicit behavior |
 | **M4. Streaming** | Text/tool deltas, complete message assembly, final results, and cancellation | Fragmented tool arguments assemble before execution; history is recorded once, and early termination/errors retain defined progress |
 | **M5. Multiple providers** | DeepSeek, OpenAI, and Anthropic under shared invocation/streaming contracts | New Sessions switch providers without changing AgentLoop; supported models, options, and capability differences are documented and verified |
 | **M6. SDK delivery** | Public exports, build, types, examples, documentation, and package validation | The packed SDK installs and runs outside this repository without development tools or import side effects |
 
-M1 starts with a model failure after a successful tool call. Define the returned status, error, and generated messages; preserve them in external history. Use the migrated tests and enabled M1 regressions to validate this change; migrate success assertions too if the result type changes. Automatic whole-task retries are deferred.
+M1 returns `{ status: "completed", addedMessages }` or `{ status: "failed", addedMessages, error }`. Callers preserve the generated increment in external history on both paths. The migrated tests cover initial failure, failure after a completed tool, continuation, and incomplete provider output. Automatic whole-task retries are deferred.
 
 ### Execution Contracts
 

@@ -28,7 +28,7 @@ These focused commands supplement the full check; do not skip or weaken regressi
 
 ## Current contract and coverage
 
-Tests use `AgentLoop.runLoop(inputMessages)`. Inputs contain caller-owned conversation history and the current user message. AgentLoop injects its configured system prompt into local context. Successful runs currently return only generated assistant/tool messages; the caller appends them to history.
+Tests use `AgentLoop.runLoop(inputMessages)`. Inputs contain caller-owned conversation history and the current user message. AgentLoop injects its configured system prompt into local context. Runs return a discriminated result: `{ status: "completed", addedMessages }` or `{ status: "failed", addedMessages, error }`. The caller appends the generated assistant/tool increment to history once, including on failure, before deciding whether to continue.
 
 | File | Coverage |
 | --- | --- |
@@ -39,26 +39,27 @@ Tests use `AgentLoop.runLoop(inputMessages)`. Inputs contain caller-owned conver
 | `mock-provider.test.ts` | Standalone Model invocation, finite scripted replies, and explicit mock exhaustion |
 | `offline.test.ts` | Rejection of unmocked fetch calls |
 | `types/tool.types.ts` | Compile-only tool argument inference and the unvalidated execution boundary |
+| `types/agent-loop.types.ts` | Compile-only run result narrowing and mandatory failure error field |
 
 Input/output tests use public return values and recorded requests, not removed Agent history fields. The simulated histories in tests are plain caller-owned arrays, not a Session implementation. Concurrent runs use different histories; they do not establish same-Session concurrency safety.
 
 ## M1 failure regressions
 
-Three tests marked `[M1]` retain the planned requirement to return failure details and partial progress to the caller:
+Three tests marked `[M1]` verify the requirement to return failure details and partial progress to the caller:
 
 1. The first model request fails: return the error and an empty generated-message increment without changing the input.
 2. A tool succeeds, then the next model request fails: return the assistant call and paired tool result. After the caller saves that increment, a continuation request must not re-execute the tool.
 3. DeepSeek returns an incomplete response after a completed tool: preserve the prior completed call/result and the `ModelError`; never execute the truncated response's tool call.
 
-The target failed-run shape used by `helpers/run-result.ts` is:
+The failed-run shape used by `helpers/run-result.ts` is:
 
 ```ts
 { status: "failed", addedMessages: BaseMessages, error: unknown }
 ```
 
-This is a test assertion for M1, not a production adapter or a catch-and-repair layer. It rejects a bare Promise rejection and validates the result's semantic fields. Current AgentLoop still rejects without returning local progress, so all three regressions remain failing and enabled. Normal-path tests retain the current array return contract; migrate those assertions too if M1 introduces a unified success/failure result type.
+`helpers/run-result.ts` validates public results without catching and repairing production failures. Failure assertions reject a bare Promise rejection and check the status, message increment, and presence of the original error. Success assertions require `status: "completed"` before inspecting `addedMessages`, so a failed result cannot silently pass a normal-path test. Provider-level tests still expect rejected model requests.
 
-Type checking passes after the API migration. The runtime suite currently contains 60 tests: 57 pass and the three M1 regressions fail. No tests are skipped or marked TODO. These failures identify unfinished production behavior, not a completed milestone.
+The migrated runtime suite contains 60 tests, including all three M1 regressions. Type checking and all 60 runtime tests pass; no tests are skipped or marked TODO. The continuation regression verifies that the caller saves the failed increment and supplies it to the next run, which completes with the tool execution count still at one. This does not guarantee crash recovery or exactly-once external side effects.
 
 ## Isolation and scope
 
@@ -66,6 +67,6 @@ Every runtime test imports `helpers/offline.ts`. Never load `.env`, import the l
 
 `RecordingProvider` snapshots requests because AgentLoop continues appending to its local context. Controlled promises verify tool ordering without timing-dependent sleeps. Restore mocks/global changes after tests and keep temporary resources in `test/` or OS temporary directories.
 
-The `ModelError` contract includes its message, code, optional HTTP status, and optional response status. Original-cause chaining remains deferred. Unexpected non-SDK exceptions propagate unchanged. Provider-level invocation tests continue to assert rejection even though M1 plans explicit failure results at the AgentLoop boundary.
+The `ModelError` contract includes its message, code, optional HTTP status, and optional response status. Original-cause chaining remains deferred. Unexpected non-SDK exceptions propagate unchanged. Provider-level invocation tests continue to assert rejection while AgentLoop returns explicit failure results at the AgentLoop boundary.
 
 Session, cancellation, hooks/events, streaming, additional real providers, structured-result serialization, duplicate tool registration, and unsupported/refused completed outputs are not certified by this suite. Add tests as their milestone contracts are defined; SDK abort classification alone does not demonstrate end-to-end cancellation. Do not change production code under a test-only request, or treat passing fixtures as proof of Preview readiness.
