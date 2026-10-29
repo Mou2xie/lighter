@@ -28,7 +28,7 @@ export class DeepSeekProvider implements Provider {
                 input: deepseekMessageAdapter.toInput(baseMessages),
                 tools: toolSpecs,
             });
-            deepseekErrorAdapter.checkResponseStatus(response);
+            deepseekErrorAdapter.checkResponseStatus(response); // Check response status, throw ModelError for non-completed statuses.
             return deepseekMessageAdapter.fromResponse(response);
         } catch (error) {
             if (error instanceof Openai.OpenAIError) {

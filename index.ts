@@ -1,7 +1,7 @@
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
-import { Agent } from "./agent/agent.js";
-import { Tool, UserMessage } from "./core/protocol.js";
+import { AgentLoop } from "./agent-loop/agent-loop.js";
+import { Tool, UserMessage, SystemMessage, type BaseMessages } from "./core/protocol.js";
 import * as z from "zod";
 
 const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -20,18 +20,32 @@ const additionTool = new Tool({
         b: z.number().describe("The second number to add."),
     }),
     func: (args) => {
-        console.log(`Tool 'addition' called with arguments: ${JSON.stringify(args)}`);
         return args.a + args.b;
     }
 });
 // create agent with model and addition tool.
-const agent = new Agent({
+const agentLoop = new AgentLoop({
     model,
     tools: [additionTool],
+    systemPrompt: new SystemMessage(`
+        You are a primary school math teacher. You are very good at explaining math problems to students in a simple and easy-to-understand way.
+        `)
 });
 
+const session: {
+    sessionID: string;
+    conversationHistory: BaseMessages;
+} = {
+    sessionID: "session-1",
+    conversationHistory: [],
+};
 
-const userMessage = new UserMessage("What is the result of 31 + 17?");
-const response = await agent.run(userMessage);
+const userMessage = new UserMessage("What is 14+24? Please explain the steps to solve it.");
 
-console.dir(response);
+session.conversationHistory.push(userMessage);
+
+const response = await agentLoop.run(session.conversationHistory);
+
+session.conversationHistory.push(...response);
+
+console.dir(session, { depth: null, colors: true });

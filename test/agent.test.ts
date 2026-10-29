@@ -2,7 +2,7 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { Agent } from "../agent/agent.js";
+import { Agent } from "../agent-loop/agent-loop.js";
 import { AssistantMessage, SystemMessage, Tool, UserMessage } from "../core/protocol.js";
 import type { BaseMessages, ToolCall } from "../core/protocol.js";
 import { Model } from "../model/model.js";
