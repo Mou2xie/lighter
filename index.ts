@@ -44,8 +44,8 @@ const userMessage = new UserMessage("What is 14+24? Please explain the steps to 
 
 session.conversationHistory.push(userMessage);
 
-const response = await agentLoop.run(session.conversationHistory);
+const addedMessages = await agentLoop.runLoop(session.conversationHistory);
 
-session.conversationHistory.push(...response);
+session.conversationHistory.push(...addedMessages);
 
-console.dir(session, { depth: null, colors: true });
+console.log(session.conversationHistory);

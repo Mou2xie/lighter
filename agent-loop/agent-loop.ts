@@ -12,36 +12,38 @@ export class AgentLoop {
     tools: Tool[];
     systemPrompt: SystemMessage;
 
-    constructor(agentLoopConfig: AgentLoopConfig) {
-        this.model = agentLoopConfig.model;
-        this.tools = agentLoopConfig.tools ?? [];
-        this.systemPrompt = agentLoopConfig.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
+    constructor(config: AgentLoopConfig) {
+        this.model = config.model;
+        this.tools = config.tools ?? [];
+        this.systemPrompt = config.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
     }
 
-    async run(messages: BaseMessages): Promise<BaseMessages> {
+    async runLoop(inputMessages: BaseMessages): Promise<BaseMessages> {
 
-        const messagesForThisRun: BaseMessages = [
+        // Merge system prompt and input messages to form the context for this run.
+        const contextMessages: BaseMessages = [
             this.systemPrompt,
-            ...messages
+            ...inputMessages
         ];
 
-        const inputLength = messagesForThisRun.length;
+        // Store the initial message count for slicing the new messages generated in this run later.
+        const initialMessageCount = contextMessages.length;
 
         // Agent core loop
         while (true) {
-            const response = await this.model.invoke(messagesForThisRun, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current agent messages and tool spec.
+            const assistantMessage = await this.model.invoke(contextMessages, this.tools.map(tool => tool.getSpec())); // Invoke the model with the current agent messages and tool spec.
 
-            messagesForThisRun.push(response); // Append the assistant's response to the agent messages.
+            contextMessages.push(assistantMessage); // Append the model response to the context messages.
 
             // handle tool calls if any.
-            if (response.toolCalls && response.toolCalls.length > 0) {
+            if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
 
-                for (const toolCall of response.toolCalls) {
+                for (const toolCall of assistantMessage.toolCalls) {
 
                     // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
                     const tool = this.tools.find(tool => tool.name === toolCall.toolName);
                     if (!tool) {
-                        messagesForThisRun.push(new ToolMessage({
+                        contextMessages.push(new ToolMessage({
                             callId: toolCall.callId,
                             toolName: toolCall.toolName,
                             toolOutput: `Tool ${toolCall.toolName} not found.`,
@@ -51,11 +53,11 @@ export class AgentLoop {
                     }
 
                     // Parse the arguments for the tool call. If fails, push an error ToolMessage and continue to the next tool call.
-                    let args: unknown;
+                    let parsedArgs: unknown;
                     try {
-                        args = JSON.parse(toolCall.arguments);
+                        parsedArgs = JSON.parse(toolCall.arguments);
                     } catch (error) {
-                        messagesForThisRun.push(new ToolMessage({
+                        contextMessages.push(new ToolMessage({
                             callId: toolCall.callId,
                             toolName: toolCall.toolName,
                             toolOutput: `Invalid JSON arguments: ${String(error)}`,
@@ -64,19 +66,19 @@ export class AgentLoop {
                         continue;
                     }
 
-                    // Execute the tool and push the result to the agent messages.
-                    const toolResult = await tool.execute(args, {
+                    // Execute the tool and push the result to the context messages.
+                    const toolResultMessage = await tool.execute(parsedArgs, {
                         callId: toolCall.callId,
                     });
-                    messagesForThisRun.push(toolResult);
+                    contextMessages.push(toolResultMessage);
                 }
             } else {
                 // No more tool calls means the agent has job done, it's safe to quit loop and return the response. 
                 break;
             }
         };
-
-        // return entire agent messages.
-        return messagesForThisRun.slice(inputLength);
+        // return new messages generated in this run, excluding the initial messages.
+        const addedMessages = contextMessages.slice(initialMessageCount);
+        return addedMessages;
     }
 }
