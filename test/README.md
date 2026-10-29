@@ -1,49 +1,71 @@
 # Offline tests
 
-The repository-level [testing and collaboration rules](../README.md#testing-and-collaboration-rules) define ownership and permissions. All test implementation, fixtures, helpers, and compile-only checks live in this directory.
+Follow the root [testing and collaboration rules](../README.md#testing-and-collaboration-rules). All runtime tests, fixtures, helpers, and compile-only assertions live under `test/`. Production code is maintained by the user.
 
 ## Commands
 
-Run from the project root:
-
 ```bash
-pnpm test
 pnpm typecheck
+pnpm test
 pnpm check
 ```
 
-Run one runtime test file:
+`pnpm check` runs TypeScript checks before the complete offline runtime suite. Runtime tests use Node's test runner and tsx, with a 10-second per-test timeout. This timeout detects stalled tests; it is not an AgentLoop step limit or cancellation policy.
+
+Run the loop tests alone:
 
 ```bash
 pnpm exec node --import tsx --test --test-timeout=10000 test/agent.test.ts
 ```
 
-`pnpm test` discovers top-level `test/*.test.ts` files and uses the existing `tsx` dependency with Node's built-in test runner. Put runtime entry points at this level; supporting modules belong in the subdirectories. Each runtime test imports `helpers/offline.ts`, which blocks unmocked `fetch` calls even when a single test file is run directly.
+Focus on M1's failure regressions:
 
-`pnpm typecheck` checks both production and test TypeScript. `types/tool.types.ts` contains compile-only assertions; `@ts-expect-error` verifies that incorrect argument types really produce compiler errors. It is not a runtime test.
+```bash
+pnpm exec node --import tsx --test --test-timeout=10000 --test-name-pattern='\[M1\]' test/agent.test.ts test/deepseek-errors.test.ts
+```
 
-## Coverage
+These focused commands supplement the full check; do not skip or weaken regressions to make the default suite pass.
 
-| File | Behavior covered |
+## Current contract and coverage
+
+Tests use `AgentLoop.runLoop(inputMessages)`. Inputs contain caller-owned conversation history and the current user message. AgentLoop injects its configured system prompt into local context. Successful runs currently return only generated assistant/tool messages; the caller appends them to history.
+
+| File | Coverage |
 | --- | --- |
-| `tool.test.ts` | Synchronous/asynchronous execution, Zod validation, defaults reaching tool functions, paired errors, text output, JSON Schema export |
-| `agent.test.ts` | Plain replies, prompts, tool round trips, awaited sequential calls, argument correction, multiple result pairing, model request failures, existing Agent history behavior |
-| `deepseek-provider.test.ts` | Actual SDK request serialization through mocked HTTP, message/reasoning conversion, function-call IDs, tool error transport, response extraction, HTTP errors, an Agent round trip |
-| `deepseek-errors.test.ts` | Request error classification, HTTP status and failure messages, failed/incomplete/cancelled response bodies, unexpected exceptions, and prevention of tool execution from incomplete responses |
-| `mock-provider.test.ts` | Provider substitution through Model, ordered replies, explicit sequence exhaustion |
-| `offline.test.ts` | Default rejection of unmocked fetch calls |
-| `types/tool.types.ts` | Tool callback argument inference and the unvalidated execution boundary |
+| `agent.test.ts` | Default/custom prompts in model requests, full generated increments, sequential asynchronous tools, argument correction, paired tool errors, caller-managed multi-turn history, unchanged inputs, stable prior outputs, and independent/concurrent run isolation; two M1 failure regressions |
+| `deepseek-provider.test.ts` | Actual SDK serialization over mocked HTTP, tool schemas, history/reasoning adaptation, call IDs, response extraction, authentication errors, and a complete AgentLoop tool/error-correction increment |
+| `deepseek-errors.test.ts` | HTTP/SDK error normalization, failed/incomplete/cancelled response statuses, missing error details, and an M1 regression for retaining completed tools after output truncation |
+| `tool.test.ts` | Synchronous/asynchronous tools, Zod validation/defaults, paired exceptions, text output, and JSON Schema export |
+| `mock-provider.test.ts` | Standalone Model invocation, finite scripted replies, and explicit mock exhaustion |
+| `offline.test.ts` | Rejection of unmocked fetch calls |
+| `types/tool.types.ts` | Compile-only tool argument inference and the unvalidated execution boundary |
 
-The HTTP helper replaces `globalThis.fetch` before creating a provider. It does not access private provider fields or bypass the SDK's request serialization. Node's per-test mock tracker restores the offline guard after each test. Synthetic connection, timeout, cancellation, and unexpected-exception tests mock the SDK's public Responses resource method; they test error normalization separately from HTTP serialization and avoid network retry delays. All mocks are restored after each test. Fixtures use dummy credentials and partial, explicitly typed wire-response examples; they do not claim that a real DeepSeek endpoint or model has been verified.
+Input/output tests use public return values and recorded requests, not removed Agent history fields. The simulated histories in tests are plain caller-owned arrays, not a Session implementation. Concurrent runs use different histories; they do not establish same-Session concurrency safety.
 
-The 10-second timeout is a test-runner limit for detecting stalled tests. It does not add a step count, timeout, or cancellation feature to the production Agent. Scripted model replies are finite so an unexpected extra loop fails explicitly instead of continuing indefinitely. Sequential execution tests use a controlled promise rather than timing-dependent sleeps.
+## M1 failure regressions
 
-## Scope and failure handling
+Three tests marked `[M1]` retain the planned requirement to return failure details and partial progress to the caller:
 
-The current ModelError contract includes its message, code, optional HTTP status, and optional response status. The user has intentionally deferred original-cause chaining; tests must not require a cause field until that capability is explicitly added. Unexpected non-SDK exceptions still propagate unchanged.
+1. The first model request fails: return the error and an empty generated-message increment without changing the input.
+2. A tool succeeds, then the next model request fails: return the assistant call and paired tool result. After the caller saves that increment, a continuation request must not re-execute the tool.
+3. DeepSeek returns an incomplete response after a completed tool: preserve the prior completed call/result and the `ModelError`; never execute the truncated response's tool call.
 
-The suite covers the implemented prototype, including request error normalization and rejection of non-completed response bodies. Structured result serialization, duplicate tool registration, malformed or unsupported completed response content, refusals, cooperative cancellation, events/hooks, and Harness sessions remain roadmap work. Recognizing an SDK abort error or a cancelled response does not establish end-to-end cancellation support. Failed and incomplete response bodies have separate regression tests; they are not covered by the HTTP authentication test. A failing regression is retained for the user to fix and is not a completed feature.
+The target failed-run shape used by `helpers/run-result.ts` is:
 
-Tests do not certify the entire beta milestone. Add coverage as features are implemented. Do not turn unsupported behavior into a passing contract just because the current implementation exhibits it.
+```ts
+{ status: "failed", addedMessages: BaseMessages, error: unknown }
+```
 
-When a test exposes a production defect, retain the meaningful regression case and report its trigger, expected result, actual result, and reproduction command. Do not weaken, skip, or remove an assertion merely to obtain a passing run, and do not change production code without explicit user authorization. Tests may be corrected when their own setup or expectations are demonstrably wrong; explain material changes.
+This is a test assertion for M1, not a production adapter or a catch-and-repair layer. It rejects a bare Promise rejection and validates the result's semantic fields. Current AgentLoop still rejects without returning local progress, so all three regressions remain failing and enabled. Normal-path tests retain the current array return contract; migrate those assertions too if M1 introduces a unified success/failure result type.
+
+Type checking passes after the API migration. The runtime suite currently contains 60 tests: 57 pass and the three M1 regressions fail. No tests are skipped or marked TODO. These failures identify unfinished production behavior, not a completed milestone.
+
+## Isolation and scope
+
+Every runtime test imports `helpers/offline.ts`. Never load `.env`, import the live demo, or use real credentials. HTTP tests replace fetch before provider creation and restore it to the offline guard. `helpers/http.ts` rejects unexpected requests; scripted providers have finite replies. Fixtures are synthetic and do not verify a live endpoint or model.
+
+`RecordingProvider` snapshots requests because AgentLoop continues appending to its local context. Controlled promises verify tool ordering without timing-dependent sleeps. Restore mocks/global changes after tests and keep temporary resources in `test/` or OS temporary directories.
+
+The `ModelError` contract includes its message, code, optional HTTP status, and optional response status. Original-cause chaining remains deferred. Unexpected non-SDK exceptions propagate unchanged. Provider-level invocation tests continue to assert rejection even though M1 plans explicit failure results at the AgentLoop boundary.
+
+Session, cancellation, hooks/events, streaming, additional real providers, structured-result serialization, duplicate tool registration, and unsupported/refused completed outputs are not certified by this suite. Add tests as their milestone contracts are defined; SDK abort classification alone does not demonstrate end-to-end cancellation. Do not change production code under a test-only request, or treat passing fixtures as proof of Preview readiness.

@@ -2,7 +2,7 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { Agent } from "../agent-loop/agent-loop.js";
+import { AgentLoop } from "../agent-loop/agent-loop.js";
 import { AssistantMessage, SystemMessage, Tool, ToolMessage, UserMessage } from "../core/protocol.js";
 import { Model } from "../model/model.js";
 import { ModelError } from "../model/errors.js";
@@ -137,19 +137,25 @@ test("HTTP authentication failures reject instead of becoming successful empty r
     http.assertConsumed();
 });
 
-test("Agent completes a tool round trip through the actual SDK and mocked HTTP", async t => {
+test("AgentLoop returns the complete generated increment through the actual SDK and mocked HTTP", async t => {
     let executions = 0;
     const http = mockHttp(t, [
         { body: response([call("bad-args", "addition", '{"a":"31","b":17}')]) },
         { body: response([call("corrected", "addition", '{"a":31,"b":17}')]) },
         { body: response([text("48")]) },
     ]);
-    const agent = new Agent({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
+    const loop = new AgentLoop({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
 
-    const messages = await agent.run(new UserMessage("31 + 17?"));
+    const inputMessages = [new UserMessage("31 + 17?")];
+    const messages = await loop.runLoop(inputMessages);
 
     http.assertConsumed();
     assert.equal(executions, 1);
+    assert.deepEqual(inputMessages.map(message => message.role), ["user"]);
+    assert.deepEqual(messages.map(message => message.role), ["assistant", "tool", "assistant", "tool", "assistant"]);
+    assert.deepEqual(messages.filter(message => message.role === "tool").map(message => [message.callId, message.isError]), [
+        ["bad-args", true], ["corrected", false],
+    ]);
     for (const request of http.requests) {
         const spec = request.body.tools?.[0];
         assert.ok(spec?.type === "function");

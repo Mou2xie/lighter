@@ -4,13 +4,14 @@ import { test } from "node:test";
 import OpenAI, { type OpenAIError } from "openai";
 import { Responses } from "openai/resources/responses/responses";
 import * as z from "zod";
-import { Agent } from "../agent-loop/agent-loop.js";
+import { AgentLoop } from "../agent-loop/agent-loop.js";
 import { Tool, UserMessage } from "../core/protocol.js";
 import { Model } from "../model/model.js";
 import { ModelError, type ModelErrorCode } from "../model/errors.js";
 import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
 import { call, response } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
+import { assertFailedRunOutcome } from "./helpers/run-result.js";
 
 test("a failed response rejects with ModelError instead of resolving to undefined", async t => {
     const http = mockHttp(t, [{ body: {
@@ -150,7 +151,7 @@ for (const status of ["failed", "incomplete"] as const) {
     });
 }
 
-test("an incomplete response never executes its tool calls or repeats already completed tools", async t => {
+test("[M1] an incomplete response returns completed tool progress without executing truncated calls", async t => {
     let executions = 0;
     const tool = new Tool({
         name: "addition", description: "Add two numbers",
@@ -163,21 +164,25 @@ test("an incomplete response never executes its tool calls or repeats already co
             status: "incomplete", incomplete_details: { reason: "max_output_tokens" },
         }) },
     ]);
-    const agent = new Agent({
+    const loop = new AgentLoop({
         model: new Model(new DeepSeekProvider("offline-test-key", "deepseek-flash")),
         tools: [tool],
     });
 
-    await assert.rejects(agent.run(new UserMessage("Add")), error => {
-        assert.ok(error instanceof ModelError);
-        assert.equal(error.responseStatus, "incomplete");
-        return true;
-    });
+    const inputMessages = [new UserMessage("Add")];
+    const [outcome] = await Promise.allSettled([loop.runLoop(inputMessages)]);
 
     http.assertConsumed();
     assert.equal(executions, 1);
-    assert.deepEqual(agent.agentMessages.map(message => message.role), ["system", "user", "assistant", "tool"]);
-    const last = agent.agentMessages.at(-1);
+    assert.deepEqual(inputMessages.map(message => message.role), ["user"]);
+    const result = assertFailedRunOutcome(outcome);
+    assert.ok(result.error instanceof ModelError);
+    assert.equal(result.error.responseStatus, "incomplete");
+    assert.deepEqual(result.addedMessages.map(message => message.role), ["assistant", "tool"]);
+    const assistant = result.addedMessages[0];
+    assert.ok(assistant?.role === "assistant");
+    assert.deepEqual(assistant.toolCalls.map(call => call.callId), ["completed-1"]);
+    const last = result.addedMessages.at(-1);
     assert.ok(last?.role === "tool");
     assert.equal(last.callId, "completed-1");
     assert.equal(last.toolOutput, "3");

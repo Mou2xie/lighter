@@ -10,8 +10,8 @@ export class RecordingProvider implements Provider {
     }
 
     async invoke(messages: BaseMessages, tools: ToolSpec[]): Promise<AssistantMessage> {
-        // Agent mutates its history after invoke returns, so retain the input
-        // as it was at request time rather than a reference to that history.
+        // AgentLoop appends to its local context after invoke returns. Snapshot
+        // each request so later steps cannot change the recorded observation.
         this.requests.push({ messages: structuredClone(messages), tools: structuredClone(tools) });
         return this.wrapped.invoke(messages, tools);
     }
