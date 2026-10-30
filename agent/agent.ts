@@ -1,33 +1,31 @@
 import { Model } from "../model/model.js";
-import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage, Tool } from "../core/protocol.js";
+import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage } from "../core/messages.js";
+import { Tool } from "../core/tool.js";
 
-export interface AgentLoopConfig {
+export interface AgentConfig {
     model: Model;
     tools?: Tool[];
     systemPrompt?: SystemMessage;
 }
 
-export type AgentLoopResult = {
-    status: "completed";
-    addedMessages: BaseMessages;
-} | {
-    status: "failed";
-    addedMessages: BaseMessages;
-    error: unknown;
+export type AgentResult = {
+    status: "completed" | "failed";
+    messages: BaseMessages;
+    error?: unknown;
 }
 
-export class AgentLoop {
-    model: Model;
-    tools: Tool[];
-    systemPrompt: SystemMessage;
+export class Agent {
+    private model: Model;
+    private tools: Tool[];
+    private systemPrompt: SystemMessage;
 
-    constructor(config: AgentLoopConfig) {
+    constructor(config: AgentConfig) {
         this.model = config.model;
         this.tools = config.tools ?? [];
         this.systemPrompt = config.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
     }
 
-    async runLoop(inputMessages: BaseMessages): Promise<AgentLoopResult> {
+    async run(inputMessages: BaseMessages): Promise<AgentResult> {
 
         // Merge system prompt and input messages to form the context for this run.
         const loopMessages: BaseMessages = [
@@ -41,25 +39,25 @@ export class AgentLoop {
         // Agent core loop
         while (true) {
 
-            let assistantMessage: AssistantMessage;
+            let modelResponse: AssistantMessage;
 
             try {
-                assistantMessage = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec()));
+                modelResponse = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec()));
             } catch (error) {
                 // If the model invocation fails, return a failed result with the error and any messages generated so far.
                 return {
                     status: "failed",
-                    addedMessages: loopMessages.slice(initialMessageCount),
+                    messages: loopMessages.slice(initialMessageCount),
                     error,
                 };
             }
 
-            loopMessages.push(assistantMessage); // Append the model response to the context messages.
+            loopMessages.push(modelResponse); // Append the model response to loop messages.
 
             // handle tool calls if any.
-            if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
+            if (modelResponse.toolCalls && modelResponse.toolCalls.length > 0) {
 
-                for (const toolCall of assistantMessage.toolCalls) {
+                for (const toolCall of modelResponse.toolCalls) {
 
                     // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
                     const tool = this.tools.find(tool => tool.name === toolCall.toolName);
@@ -87,7 +85,7 @@ export class AgentLoop {
                         continue;
                     }
 
-                    // Execute the tool and push the result to the context messages.
+                    // Execute the tool and push the result to the loop messages.
                     const toolResultMessage = await tool.execute(parsedArgs, {
                         callId: toolCall.callId,
                     });
@@ -99,11 +97,11 @@ export class AgentLoop {
             }
         };
         // return new messages generated in this run, excluding the initial messages.
-        const addedMessages = loopMessages.slice(initialMessageCount);
+        const newMessages = loopMessages.slice(initialMessageCount);
 
         return {
             status: "completed",
-            addedMessages
+            messages: newMessages
         }
     }
 }

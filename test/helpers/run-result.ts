@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type { AgentLoopResult } from "../../agent-loop/agent-loop.js";
+import type { AgentLoopResult } from "../../agent/agent.js";
 import type { BaseMessages } from "../../core/protocol.js";
 
 // Assertions validate the public run result; they do not repair failures or

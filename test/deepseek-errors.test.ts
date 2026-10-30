@@ -4,7 +4,7 @@ import { test } from "node:test";
 import OpenAI, { type OpenAIError } from "openai";
 import { Responses } from "openai/resources/responses/responses";
 import * as z from "zod";
-import { AgentLoop } from "../agent-loop/agent-loop.js";
+import { AgentLoop } from "../agent/agent.js";
 import { Tool, UserMessage } from "../core/protocol.js";
 import { Model } from "../model/model.js";
 import { ModelError, type ModelErrorCode } from "../model/errors.js";

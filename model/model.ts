@@ -1,5 +1,6 @@
 import type { Provider } from "./providers/provider.js";
-import type { BaseMessages, AssistantMessage, ToolSpec } from "../core/protocol.js";
+import type { BaseMessages, AssistantMessage } from "../core/messages.js";
+import type { ToolSpec } from "../core/tool.js";
 
 export class Model {
     readonly provider: Provider;
@@ -8,7 +9,7 @@ export class Model {
         this.provider = provider;
     }
 
-    async invoke(baseMessages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
-        return await this.provider.invoke(baseMessages, toolSpecs);
+    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+        return await this.provider.invoke(messages, toolSpecs);
     }
 }

@@ -1,35 +1,40 @@
 import type { Provider } from "./provider.js";
 import Openai, { type OpenAIError } from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
-import type { BaseMessages, ToolCall, ToolSpec } from "../../core/protocol.js";
-import { AssistantMessage } from "../../core/protocol.js";
+import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
+import type { ToolSpec } from "../../core/tool.js";
 import { ModelError, type ModelErrorCode } from "../errors.js";
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
-type DeepSeekModelID = "deepseek-flash" | "deepseek-v4-pro";
+type DEEPSEEK_MODEIL_ID = "deepseek-flash" | "deepseek-v4-pro";
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 
 export class DeepSeekProvider implements Provider {
     readonly name = "deepseek" as const;
     private readonly client: Openai;
-    modelID: DeepSeekModelID;
+    private modelID: DEEPSEEK_MODEIL_ID;
 
-    constructor(apiKey: string, modelID: DeepSeekModelID) {
+    constructor(apiKey: string, modelID: DEEPSEEK_MODEIL_ID) {
         this.client = new Openai({
-            baseURL: 'https://api.deepseek.com',
+            baseURL: DEEPSEEK_BASE_URL,
             apiKey,
         });
         this.modelID = modelID;
     }
 
-    async invoke(baseMessages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+
         try {
             const response = await this.client.responses.create({
                 model: this.modelID,
-                input: deepseekMessageAdapter.toInput(baseMessages),
+                input: deepseekMessageAdapter.toInput(messages),
                 tools: toolSpecs,
             });
-            deepseekErrorAdapter.checkResponseStatus(response); // Check response status, throw ModelError for non-completed statuses.
+            // Check response status, throw ModelError for non-completed statuses.
+            deepseekErrorAdapter.checkResponseStatus(response);
+
             return deepseekMessageAdapter.fromResponse(response);
+
         } catch (error) {
             if (error instanceof Openai.OpenAIError) {
                 throw deepseekErrorAdapter.toModelError(error);
@@ -96,7 +101,7 @@ const deepseekErrorAdapter = {
         }
 
         return new ModelError(`DeepSeek request failed: ${error.message}`, code, {
-            status: error instanceof Openai.APIError ? error.status : undefined,
+            httpStatus: error instanceof Openai.APIError ? error.status : undefined,
         });
     }
 }

@@ -1,9 +1,9 @@
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
-import { AgentLoop } from "./agent-loop/agent-loop.js";
-import { Tool, UserMessage, SystemMessage, type BaseMessages } from "./core/protocol.js";
+import { Agent } from "./agent/agent.js";
+import { UserMessage, SystemMessage } from "./core/messages.js";
+import { Tool } from "./core/tool.js";
 import * as z from "zod";
-import { Session } from "./harness/session.js";
 
 const apiKey = process.env.DEEPSEEK_API_KEY;
 if (!apiKey) {
@@ -24,8 +24,9 @@ const additionTool = new Tool({
         return args.a + args.b;
     }
 });
+
 // create agent with model and addition tool.
-const agentLoop = new AgentLoop({
+const agent = new Agent({
     model,
     tools: [additionTool],
     systemPrompt: new SystemMessage(`
@@ -33,23 +34,6 @@ const agentLoop = new AgentLoop({
         `)
 });
 
-const session = new Session();
-
-const userMessage = new UserMessage("What is 14+24? Please explain the steps to solve it.");
-
-session.addMessage(userMessage);
-
-const agentLoopResult = await agentLoop.runLoop(session.getConversationHistory());
-
-session.addMessage(agentLoopResult.addedMessages);
-
-console.log("Conversation History:", session.getConversationHistory());
-
-if (agentLoopResult.status === "completed") {
-    console.log("Agent loop completed successfully.");
-} else {
-    console.error("Agent loop failed:", agentLoopResult.error);
-}
 
 
 

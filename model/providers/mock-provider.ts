@@ -1,8 +1,8 @@
 import type { Provider } from "./provider.js";
-import type { BaseMessages, ToolSpec } from "../../core/protocol.js";
-import { AssistantMessage } from "../../core/protocol.js";
+import type { BaseMessages, AssistantMessage } from "../../core/messages.js";
+import type { ToolSpec } from "../../core/tool.js";
 
-
+// Used for testing and development purposes.
 export class MockProvider implements Provider {
     readonly name = "mock" as const;
     readonly responses: AssistantMessage[];
@@ -11,7 +11,7 @@ export class MockProvider implements Provider {
     constructor(responses: AssistantMessage[]) {
         this.responses = responses;
     }
-    async invoke(baseMessages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
         if (this.responseIndex < this.responses.length) {
             return this.responses[this.responseIndex++];
         } else {

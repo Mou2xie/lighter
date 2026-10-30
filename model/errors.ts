@@ -11,13 +11,13 @@ export type ModelErrorCode =
 export class ModelError extends Error {
     readonly name = "ModelError" as const;
     readonly code: ModelErrorCode;
-    readonly status?: number;
+    readonly httpStatus?: number;
     readonly responseStatus?: string;
 
-    constructor(message: string, code: ModelErrorCode, options?: { status?: number; responseStatus?: string }) {
+    constructor(message: string, code: ModelErrorCode, options?: { httpStatus?: number; responseStatus?: string }) {
         super(message);
         this.code = code;
-        this.status = options?.status;
+        this.httpStatus = options?.httpStatus;
         this.responseStatus = options?.responseStatus;
     }
 }

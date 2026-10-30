@@ -1,4 +1,4 @@
-import type { AgentLoop, AgentLoopResult } from "../../agent-loop/agent-loop.js";
+import type { AgentLoop, AgentLoopResult } from "../../agent/agent.js";
 import type { BaseMessages } from "../../core/protocol.js";
 
 // Compile-only assertions: the public return type must support status narrowing
