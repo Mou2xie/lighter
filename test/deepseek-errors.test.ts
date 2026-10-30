@@ -4,14 +4,15 @@ import { test } from "node:test";
 import OpenAI, { type OpenAIError } from "openai";
 import { Responses } from "openai/resources/responses/responses";
 import * as z from "zod";
-import { AgentLoop } from "../agent/agent.js";
-import { Tool, UserMessage } from "../core/protocol.js";
+import { Agent } from "../agent/agent.js";
+import { UserMessage } from "../core/messages.js";
+import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { ModelError, type ModelErrorCode } from "../model/errors.js";
 import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
 import { call, response } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
-import { assertFailedRunOutcome } from "./helpers/run-result.js";
+import { assertFailedRun } from "./helpers/run-result.js";
 
 test("a failed response rejects with ModelError instead of resolving to undefined", async t => {
     const http = mockHttp(t, [{ body: {
@@ -26,6 +27,7 @@ test("a failed response rejects with ModelError instead of resolving to undefine
         assert.equal(error.name, "ModelError");
         assert.equal(error.code, "bad_response");
         assert.equal(error.responseStatus, "failed");
+        assert.equal(error.httpStatus, undefined);
         assert.match(error.message, /Test service failure/);
         return true;
     });
@@ -45,6 +47,7 @@ test("an incomplete response rejects with ModelError instead of resolving to und
         assert.ok(error instanceof ModelError, "Incomplete generation must not become a successful result");
         assert.equal(error.code, "bad_response");
         assert.equal(error.responseStatus, "incomplete");
+        assert.equal(error.httpStatus, undefined);
         assert.match(error.message, /max_output_tokens/);
         return true;
     });
@@ -71,7 +74,8 @@ for (const [status, code] of httpErrors) {
         await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, code);
-            assert.equal(error.status, status);
+            assert.equal(error.httpStatus, status);
+            assert.equal(error.responseStatus, undefined);
             assert.match(error.message, new RegExp(`Test HTTP ${status} failure`));
             return true;
         });
@@ -100,7 +104,8 @@ for (const [label, makeError, code] of sdkErrors) {
             assert.equal(error.code, code);
             assert.equal(error.name, "ModelError");
             assert.ok(error.message.includes(original.message));
-            assert.equal(error.status, undefined);
+            assert.equal(error.httpStatus, undefined);
+            assert.equal(error.responseStatus, undefined);
             return true;
         });
     });
@@ -127,6 +132,7 @@ for (const [status, code] of [
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, code);
             assert.equal(error.responseStatus, status);
+            assert.equal(error.httpStatus, undefined);
             return true;
         });
 
@@ -143,6 +149,7 @@ for (const status of ["failed", "incomplete"] as const) {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, "bad_response");
             assert.equal(error.responseStatus, status);
+            assert.equal(error.httpStatus, undefined);
             assert.match(error.message, /No (error details|reason) provided/);
             return true;
         });
@@ -151,7 +158,7 @@ for (const status of ["failed", "incomplete"] as const) {
     });
 }
 
-test("[M1] an incomplete response returns completed tool progress without executing truncated calls", async t => {
+test("an incomplete response returns completed tool progress without executing truncated calls", async t => {
     let executions = 0;
     const tool = new Tool({
         name: "addition", description: "Add two numbers",
@@ -164,25 +171,24 @@ test("[M1] an incomplete response returns completed tool progress without execut
             status: "incomplete", incomplete_details: { reason: "max_output_tokens" },
         }) },
     ]);
-    const loop = new AgentLoop({
+    const agent = new Agent({
         model: new Model(new DeepSeekProvider("offline-test-key", "deepseek-flash")),
         tools: [tool],
     });
 
     const inputMessages = [new UserMessage("Add")];
-    const [outcome] = await Promise.allSettled([loop.runLoop(inputMessages)]);
+    const result = assertFailedRun(await agent.run(inputMessages));
 
     http.assertConsumed();
     assert.equal(executions, 1);
     assert.deepEqual(inputMessages.map(message => message.role), ["user"]);
-    const result = assertFailedRunOutcome(outcome);
     assert.ok(result.error instanceof ModelError);
     assert.equal(result.error.responseStatus, "incomplete");
-    assert.deepEqual(result.addedMessages.map(message => message.role), ["assistant", "tool"]);
-    const assistant = result.addedMessages[0];
+    assert.deepEqual(result.messages.map(message => message.role), ["assistant", "tool"]);
+    const assistant = result.messages[0];
     assert.ok(assistant?.role === "assistant");
     assert.deepEqual(assistant.toolCalls.map(call => call.callId), ["completed-1"]);
-    const last = result.addedMessages.at(-1);
+    const last = result.messages.at(-1);
     assert.ok(last?.role === "tool");
     assert.equal(last.callId, "completed-1");
     assert.equal(last.toolOutput, "3");

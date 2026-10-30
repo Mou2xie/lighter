@@ -2,7 +2,7 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { Tool } from "../core/protocol.js";
+import { Tool } from "../core/tool.js";
 
 const additionSchema = z.strictObject({ a: z.number(), b: z.number() });
 

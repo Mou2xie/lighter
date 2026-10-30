@@ -2,8 +2,9 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { AgentLoop } from "../agent/agent.js";
-import { AssistantMessage, SystemMessage, Tool, ToolMessage, UserMessage } from "../core/protocol.js";
+import { Agent } from "../agent/agent.js";
+import { AssistantMessage, SystemMessage, ToolMessage, UserMessage } from "../core/messages.js";
+import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { ModelError } from "../model/errors.js";
 import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
@@ -130,7 +131,7 @@ test("HTTP authentication failures reject instead of becoming successful empty r
     await assert.rejects(makeProvider().invoke([new UserMessage("Hi")], []), error => {
         assert.ok(error instanceof ModelError);
         assert.equal(error.code, "auth_error");
-        assert.equal(error.status, 401);
+        assert.equal(error.httpStatus, 401);
         assert.match(error.message, /Invalid test key/);
         return true;
     });
@@ -138,17 +139,17 @@ test("HTTP authentication failures reject instead of becoming successful empty r
     http.assertConsumed();
 });
 
-test("AgentLoop returns the complete generated increment through the actual SDK and mocked HTTP", async t => {
+test("Agent returns the complete generated increment through the actual SDK and mocked HTTP", async t => {
     let executions = 0;
     const http = mockHttp(t, [
         { body: response([call("bad-args", "addition", '{"a":"31","b":17}')]) },
         { body: response([call("corrected", "addition", '{"a":31,"b":17}')]) },
         { body: response([text("48")]) },
     ]);
-    const loop = new AgentLoop({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
+    const agent = new Agent({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
 
     const inputMessages = [new UserMessage("31 + 17?")];
-    const messages = assertCompletedRun(await loop.runLoop(inputMessages));
+    const messages = assertCompletedRun(await agent.run(inputMessages));
 
     http.assertConsumed();
     assert.equal(executions, 1);

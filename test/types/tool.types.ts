@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { Tool } from "../../core/protocol.js";
+import { Tool } from "../../core/tool.js";
 
 // Compile-only checks, included by pnpm typecheck. Never execute this function.
 function checkToolInference() {

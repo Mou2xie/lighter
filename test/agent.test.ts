@@ -2,13 +2,14 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { AgentLoop } from "../agent/agent.js";
-import { AssistantMessage, SystemMessage, Tool, UserMessage } from "../core/protocol.js";
-import type { BaseMessages, ToolCall } from "../core/protocol.js";
+import { Agent } from "../agent/agent.js";
+import { AssistantMessage, SystemMessage, UserMessage } from "../core/messages.js";
+import { Tool } from "../core/tool.js";
+import type { BaseMessages, ToolCall } from "../core/messages.js";
 import { Model } from "../model/model.js";
 import { MockProvider } from "../model/providers/mock-provider.js";
 import { RecordingProvider } from "./helpers/recording-provider.js";
-import { assertCompletedRun, assertFailedRunOutcome } from "./helpers/run-result.js";
+import { assertCompletedRun, assertFailedRun } from "./helpers/run-result.js";
 
 function toolReply(name: string, args: string, callId = "call-1") {
     return new AssistantMessage("", { toolCalls: [{ callId, toolName: name, arguments: args }] });
@@ -44,7 +45,7 @@ function deferred() {
 
 test("a plain reply completes the run and uses the default system prompt once", async () => {
     const provider = new RecordingProvider(new MockProvider([new AssistantMessage("Hello")]));
-    const messages = assertCompletedRun(await new AgentLoop({ model: new Model(provider) }).runLoop([new UserMessage("Hi")]));
+    const messages = assertCompletedRun(await new Agent({ model: new Model(provider) }).run([new UserMessage("Hi")]));
 
     assert.equal(provider.requests.length, 1);
     assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
@@ -57,10 +58,10 @@ test("a plain reply completes the run and uses the default system prompt once", 
 test("an explicit system prompt replaces the default prompt", async () => {
     const prompt = new SystemMessage("Only answer in numbers");
     const provider = new RecordingProvider(new MockProvider([new AssistantMessage("3")]));
-    const messages = assertCompletedRun(await new AgentLoop({
+    const messages = assertCompletedRun(await new Agent({
         model: new Model(provider),
         systemPrompt: prompt,
-    }).runLoop([new UserMessage("1 + 2?")]));
+    }).run([new UserMessage("1 + 2?")]));
 
     assert.deepEqual(provider.requests[0]!.messages.filter(message => message.role === "system").map(message => message.content), [prompt.content]);
     assert.deepEqual(messages.map(message => message.role), ["assistant"]);
@@ -73,8 +74,8 @@ test("executes a tool once and supplies its paired result and tool definition to
         toolReply("addition", '{"a":11,"b":7}', "add-1"),
         new AssistantMessage("18"),
     ]));
-    const messages = assertCompletedRun(await new AgentLoop({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
-        .runLoop([new UserMessage("11 + 7?")]));
+    const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
+        .run([new UserMessage("11 + 7?")]));
 
     assert.equal(executions, 1);
     assert.equal(provider.requests.length, 2);
@@ -109,7 +110,7 @@ test("awaits an asynchronous tool before starting the next call in the same turn
     const provider = new RecordingProvider(new MockProvider([
         new AssistantMessage("", { toolCalls: calls }), new AssistantMessage("Done"),
     ]));
-    const loop = new AgentLoop({
+    const agent = new Agent({
         model: new Model(provider),
         tools: [
             new Tool({
@@ -129,7 +130,7 @@ test("awaits an asynchronous tool before starting the next call in the same turn
         ],
     });
 
-    const run = loop.runLoop([new UserMessage("Run both")]);
+    const run = agent.run([new UserMessage("Run both")]);
     await started.promise;
     try {
         assert.deepEqual(order, ["first:start"]);
@@ -157,8 +158,8 @@ for (const [label, argumentsText] of [
             toolReply("addition", '{"a":11,"b":7}', "corrected-1"),
             new AssistantMessage("18"),
         ]));
-        const messages = assertCompletedRun(await new AgentLoop({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
-            .runLoop([new UserMessage("11 + 7?")]));
+        const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
+            .run([new UserMessage("11 + 7?")]));
 
         const failure = provider.requests[1]!.messages.at(-1);
         assert.ok(failure?.role === "tool");
@@ -179,6 +180,8 @@ for (const [label, argumentsText] of [
 test("unknown tools and tool exceptions do not leave unpaired calls or skip later tools", async () => {
     const calls: ToolCall[] = [
         { callId: "missing-1", toolName: "missing", arguments: "{}" },
+        { callId: "json-1", toolName: "addition", arguments: "{" },
+        { callId: "invalid-1", toolName: "addition", arguments: '{"a":"1","b":2}' },
         { callId: "broken-1", toolName: "broken", arguments: "{}" },
         { callId: "add-1", toolName: "addition", arguments: '{"a":1,"b":2}' },
     ];
@@ -190,37 +193,47 @@ test("unknown tools and tool exceptions do not leave unpaired calls or skip late
         func: async () => { throw new Error("Test tool failure"); },
     });
 
-    const messages = assertCompletedRun(await new AgentLoop({ model: new Model(provider), tools: [broken, makeAddition()] })
-        .runLoop([new UserMessage("Try the tools")]));
+    let executions = 0;
+    const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [broken, makeAddition(() => executions++)] })
+        .run([new UserMessage("Try the tools")]));
 
     const results = provider.requests[1]!.messages.filter(message => message.role === "tool");
     assert.deepEqual(results.map(message => [message.callId, message.toolName, message.isError]), [
-        ["missing-1", "missing", true], ["broken-1", "broken", true], ["add-1", "addition", false],
+        ["missing-1", "missing", true], ["json-1", "addition", true], ["invalid-1", "addition", true],
+        ["broken-1", "broken", true], ["add-1", "addition", false],
     ]);
     assert.match(results[0]!.toolOutput, /missing.*not found/);
-    assert.match(results[1]!.toolOutput, /Test tool failure/);
-    assert.equal(results[2]!.toolOutput, "3");
+    assert.match(results[1]!.toolOutput, /Invalid JSON/);
+    assert.ok(results[2]!.toolOutput.length > 0);
+    assert.match(results[3]!.toolOutput, /Test tool failure/);
+    assert.equal(results[4]!.toolOutput, "3");
+    assert.equal(executions, 1);
     assert.equal(finalText(messages), "Recovered");
 });
 
-test("[M1] an initial model failure returns its error and no generated messages", async () => {
-    const failure = new Error("Model unavailable");
-    const provider = new RecordingProvider({ name: "failing", invoke: async () => { throw failure; } });
-    const loop = new AgentLoop({ model: new Model(provider) });
-    const inputMessages = [new UserMessage("Hi")];
-    const before = JSON.stringify(inputMessages);
+for (const [label, failure] of [
+    ["an Error", new Error("Model unavailable")],
+    ["a string", "Model unavailable"],
+    ["null", null],
+    ["undefined", undefined],
+] as const) {
+    test(`an initial model failure preserves ${label} and returns no generated messages`, async () => {
+        const provider = new RecordingProvider({ name: "failing", invoke: async () => { throw failure; } });
+        const agent = new Agent({ model: new Model(provider) });
+        const inputMessages = [new UserMessage("Hi")];
+        const before = JSON.stringify(inputMessages);
 
-    const [outcome] = await Promise.allSettled([loop.runLoop(inputMessages)]);
+        const result = assertFailedRun(await agent.run(inputMessages));
 
-    assert.equal(provider.requests.length, 1);
-    assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
-    assert.equal(JSON.stringify(inputMessages), before);
-    const result = assertFailedRunOutcome(outcome);
-    assert.equal(result.error, failure);
-    assert.deepEqual(result.addedMessages, []);
-});
+        assert.equal(provider.requests.length, 1);
+        assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
+        assert.equal(JSON.stringify(inputMessages), before);
+        assert.equal(result.error, failure);
+        assert.deepEqual(result.messages, []);
+    });
+}
 
-test("[M1] a later model failure returns completed tools and supports continuation without re-execution", async () => {
+test("a later model failure returns completed tools and supports continuation without re-execution", async () => {
     const failure = new Error("Follow-up request failed");
     let executions = 0;
     let modelCalls = 0;
@@ -235,20 +248,19 @@ test("[M1] a later model failure returns completed tools and supports continuati
             }
         },
     });
-    const loop = new AgentLoop({ model: new Model(provider), tools: [makeAddition(() => executions++)] });
+    const agent = new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] });
     const history: BaseMessages = [new UserMessage("Add")];
-    const [outcome] = await Promise.allSettled([loop.runLoop(history)]);
+    const result = assertFailedRun(await agent.run(history));
 
     assert.equal(modelCalls, 2);
     assert.equal(executions, 1);
     assert.deepEqual(history.map(message => message.role), ["user"]);
-    const result = assertFailedRunOutcome(outcome);
     assert.equal(result.error, failure);
-    assert.deepEqual(result.addedMessages.map(message => message.role), ["assistant", "tool"]);
-    const assistant = result.addedMessages[0];
+    assert.deepEqual(result.messages.map(message => message.role), ["assistant", "tool"]);
+    const assistant = result.messages[0];
     assert.ok(assistant?.role === "assistant");
     assert.equal(assistant.toolCalls[0]!.callId, "completed-1");
-    const toolResult = result.addedMessages[1];
+    const toolResult = result.messages[1];
     assert.ok(toolResult?.role === "tool");
     assert.equal(toolResult.callId, "completed-1");
     assert.equal(toolResult.toolName, "addition");
@@ -257,8 +269,8 @@ test("[M1] a later model failure returns completed tools and supports continuati
 
     // The caller commits progress and retries the model with the retained
     // context, without adding the user input or executing the tool again.
-    history.push(...result.addedMessages);
-    const addedMessages = assertCompletedRun(await loop.runLoop(history));
+    history.push(...result.messages);
+    const addedMessages = assertCompletedRun(await agent.run(history));
     assert.equal(finalText(addedMessages), "3");
     assert.equal(executions, 1);
     assert.equal(modelCalls, 3);
@@ -267,12 +279,12 @@ test("[M1] a later model failure returns completed tools and supports continuati
 
 test("caller-managed history supplies the preceding turn without duplicating inputs or system prompts", async () => {
     const provider = new RecordingProvider(new MockProvider([new AssistantMessage("First reply"), new AssistantMessage("Second reply")]));
-    const loop = new AgentLoop({ model: new Model(provider) });
+    const agent = new Agent({ model: new Model(provider) });
     const history: BaseMessages = [new UserMessage("First input")];
 
-    history.push(...assertCompletedRun(await loop.runLoop(history)));
+    history.push(...assertCompletedRun(await agent.run(history)));
     history.push(new UserMessage("Second input"));
-    const addedMessages = assertCompletedRun(await loop.runLoop(history));
+    const addedMessages = assertCompletedRun(await agent.run(history));
     history.push(...addedMessages);
 
     assert.deepEqual(provider.requests[1]!.messages.map(message => message.role), ["system", "user", "assistant", "user"]);
@@ -288,14 +300,14 @@ test("a tool round trip leaves caller history unchanged and excludes that histor
     const provider = new RecordingProvider(new MockProvider([
         toolReply("addition", '{"a":1,"b":2}', "new-call"), new AssistantMessage("3"),
     ]));
-    const loop = new AgentLoop({ model: new Model(provider), tools: [makeAddition()] });
+    const agent = new Agent({ model: new Model(provider), tools: [makeAddition()] });
     const inputMessages: BaseMessages = [
         new UserMessage("Earlier input"), new AssistantMessage("Earlier reply"), new UserMessage("Add"),
     ];
     const before = JSON.stringify(inputMessages);
     const originalMessages = [...inputMessages];
 
-    const addedMessages = assertCompletedRun(await loop.runLoop(inputMessages));
+    const addedMessages = assertCompletedRun(await agent.run(inputMessages));
 
     assert.equal(JSON.stringify(inputMessages), before);
     assert.deepEqual(inputMessages, originalMessages);
@@ -305,14 +317,14 @@ test("a tool round trip leaves caller history unchanged and excludes that histor
     assert.deepEqual(provider.requests[0]!.messages.slice(1), structuredClone(inputMessages));
 });
 
-test("reusing a loop does not change a previously returned increment", async () => {
-    const loop = new AgentLoop({ model: new Model(new MockProvider([
+test("reusing an agent does not change a previously returned increment", async () => {
+    const agent = new Agent({ model: new Model(new MockProvider([
         new AssistantMessage("First"), new AssistantMessage("Second"),
     ])) });
-    const first = assertCompletedRun(await loop.runLoop([new UserMessage("One")]));
+    const first = assertCompletedRun(await agent.run([new UserMessage("One")]));
     const before = JSON.stringify(first);
 
-    const second = assertCompletedRun(await loop.runLoop([new UserMessage("Two")]));
+    const second = assertCompletedRun(await agent.run([new UserMessage("Two")]));
 
     assert.equal(JSON.stringify(first), before);
     assert.deepEqual(first.map(message => message.role), ["assistant"]);
@@ -321,18 +333,18 @@ test("reusing a loop does not change a previously returned increment", async () 
     assert.notEqual(first, second);
 });
 
-test("independent histories can reuse one loop without leaking context between them", async () => {
+test("independent histories can reuse one agent without leaking context between them", async () => {
     const provider = new RecordingProvider(new MockProvider([
         new AssistantMessage("Reply A"), new AssistantMessage("Reply B"), new AssistantMessage("Follow-up A"),
     ]));
-    const loop = new AgentLoop({ model: new Model(provider) });
+    const agent = new Agent({ model: new Model(provider) });
     const historyA: BaseMessages = [new UserMessage("Input A")];
     const historyB: BaseMessages = [new UserMessage("Input B")];
 
-    historyA.push(...assertCompletedRun(await loop.runLoop(historyA)));
-    historyB.push(...assertCompletedRun(await loop.runLoop(historyB)));
+    historyA.push(...assertCompletedRun(await agent.run(historyA)));
+    historyB.push(...assertCompletedRun(await agent.run(historyB)));
     historyA.push(new UserMessage("Follow-up"));
-    historyA.push(...assertCompletedRun(await loop.runLoop(historyA)));
+    historyA.push(...assertCompletedRun(await agent.run(historyA)));
 
     assert.deepEqual(textContents(provider.requests[1]!.messages), ["You are a helpful assistant.", "Input B"]);
     assert.deepEqual(textContents(provider.requests[2]!.messages), ["You are a helpful assistant.", "Input A", "Reply A", "Follow-up"]);
@@ -351,11 +363,11 @@ test("concurrent runs with different input histories keep their local contexts i
             return new AssistantMessage(`Reply to ${input.content}`);
         },
     });
-    const loop = new AgentLoop({ model: new Model(provider) });
+    const agent = new Agent({ model: new Model(provider) });
     const historyA = [new UserMessage("A")];
     const historyB = [new UserMessage("B")];
 
-    const [resultA, resultB] = await Promise.all([loop.runLoop(historyA), loop.runLoop(historyB)]);
+    const [resultA, resultB] = await Promise.all([agent.run(historyA), agent.run(historyB)]);
     const addedA = assertCompletedRun(resultA);
     const addedB = assertCompletedRun(resultB);
 

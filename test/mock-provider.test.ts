@@ -1,7 +1,7 @@
 import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AssistantMessage, UserMessage } from "../core/protocol.js";
+import { AssistantMessage, UserMessage } from "../core/messages.js";
 import { Model } from "../model/model.js";
 import { MockProvider } from "../model/providers/mock-provider.js";
 
