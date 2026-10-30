@@ -36,7 +36,7 @@ export class Tool<ZSchema extends z.ZodObject = z.ZodObject> {
             return new ToolMessage({
                 callId: options.callId,
                 toolName: this.name,
-                toolOutput: String(result),
+                toolOutput: JSON.stringify(result),
                 isError: false
             });
         } catch (error) {
@@ -44,7 +44,7 @@ export class Tool<ZSchema extends z.ZodObject = z.ZodObject> {
             return new ToolMessage({
                 callId: options.callId,
                 toolName: this.name,
-                toolOutput: String(error),
+                toolOutput: JSON.stringify(error),
                 isError: true
             });
         }

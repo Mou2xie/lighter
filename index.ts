@@ -1,7 +1,7 @@
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
 import { Agent } from "./agent/agent.js";
-import { UserMessage, SystemMessage } from "./core/messages.js";
+import { UserMessage, SystemMessage, type BaseMessages, AssistantMessage } from "./core/messages.js";
 import { Tool } from "./core/tool.js";
 import * as z from "zod";
 
@@ -34,6 +34,22 @@ const agent = new Agent({
         `)
 });
 
+const chatMessages: BaseMessages = [
+    new UserMessage("What is 2 + 3?"),
+];
 
+const { status, messages, error } = await agent.run(chatMessages);
+chatMessages.push(...messages);
+
+if (status === "completed") {
+    console.log("Agent run completed successfully. Messages:");
+} else {
+    console.error("Agent run failed with error:", error);
+}
+
+const lastMessage = chatMessages.at(-1);
+if (lastMessage instanceof AssistantMessage) {
+    console.log(lastMessage.content);
+}
 
 
