@@ -1,5 +1,5 @@
 import type { Provider } from "./provider.js";
-import type { BaseMessages, AssistantMessage } from "../../core/messages.js";
+import type { BaseMessages, AssistantMessage, ModelStreamEvent } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
 
 // Used for testing and development purposes.
@@ -17,5 +17,10 @@ export class MockProvider implements Provider {
         } else {
             throw new Error("MockProvider: no responses remaining.");
         }
+    }
+
+    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ModelStreamEvent> {
+        const message = await this.invoke(messages, toolSpecs);
+        yield { type: "message", message };
     }
 }

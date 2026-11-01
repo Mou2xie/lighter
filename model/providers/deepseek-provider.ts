@@ -4,6 +4,8 @@ import type { Response, ResponseInput } from "openai/resources/responses/respons
 import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
 import { ModelError, type ModelErrorCode } from "../errors.js";
+import type { ModelStreamEvent } from "../../core/messages.js";
+
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
 type DEEPSEEK_MODEIL_ID = "deepseek-flash" | "deepseek-v4-pro";
@@ -42,7 +44,59 @@ export class DeepSeekProvider implements Provider {
             throw error;
         }
     }
+
+    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ModelStreamEvent> {
+
+        try {
+            const responseStream = await this.client.responses.create({
+                model: this.modelID,
+                input: deepseekMessageAdapter.toInput(messages),
+                tools: toolSpecs,
+                stream: true,
+            });
+
+            for await (const chunk of responseStream) {
+                switch (chunk.type) {
+                    case "response.reasoning_text.delta": {
+                        yield {
+                            type: "reasoning_delta",
+                            text: chunk.delta,
+                        }
+                        break;
+                    }
+                    case "response.output_text.delta": {
+                        yield {
+                            type: "text_delta",
+                            text: chunk.delta,
+                        }
+                        break;
+                    }
+                    case "response.completed": {
+                        yield {
+                            type: "message",
+                            message: deepseekMessageAdapter.fromResponse(chunk.response),
+                        }
+                        return;
+                    }
+                    case "response.failed":
+                    case "response.incomplete": {
+                        deepseekErrorAdapter.checkResponseStatus(chunk.response);
+                        break;
+                    }
+                    case "error": {
+                        throw new ModelError(chunk.message, "bad_response");
+                    }
+                }
+            }
+        } catch (error) {
+            if (error instanceof Openai.OpenAIError) {
+                throw deepseekErrorAdapter.toModelError(error);
+            }
+            throw error;
+        }
+    }
 }
+
 
 // Adapter for error checking and converting DeepSeek errors to ModelError.
 const deepseekErrorAdapter = {

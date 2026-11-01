@@ -57,3 +57,14 @@ export class ToolMessage {
 export type BaseMessage = SystemMessage | UserMessage | AssistantMessage | ToolMessage;
 
 export type BaseMessages = BaseMessage[];
+
+export type ModelStreamEvent = {
+    type: "reasoning_delta",
+    text: string,
+} | {
+    type: "text_delta",
+    text: string,
+} | {
+    type: "message",
+    message: AssistantMessage,
+}
