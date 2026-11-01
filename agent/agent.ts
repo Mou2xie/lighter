@@ -1,6 +1,7 @@
 import { Model } from "../model/model.js";
 import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
+import { ProviderStreamEvent } from "../model/providers/provider.js";
 
 export interface AgentConfig {
     model: Model;
@@ -13,6 +14,17 @@ export type AgentResult = {
     messages: BaseMessages;
     error?: unknown;
 }
+
+export type AgentStreamEvent =
+    | ProviderStreamEvent
+    | {
+        type: "tool_message";
+        message: ToolMessage;
+    }
+    | {
+        type: "result";
+        result: AgentResult;
+    };
 
 export class Agent {
     private model: Model;
@@ -102,6 +114,36 @@ export class Agent {
         return {
             status: "completed",
             messages: newMessages
+        }
+    }
+
+    async *stream(inputMessages: BaseMessages): AsyncGenerator<AgentStreamEvent> {
+
+        const loopMessages: BaseMessages = [
+            this.systemPrompt,
+            ...inputMessages
+        ];
+
+        const initialMessageCount = loopMessages.length;
+
+        while (true) {
+            
+            const modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
+
+            for await (const chunk of modelResponseStream) {
+                switch (chunk.type) {
+                    case "reasoning_delta":
+                        yield chunk;
+                        break;
+                    case "text_delta":
+                        yield chunk;
+                        break;
+                    case "message":
+                        const assistantMessage = chunk.message;
+                        loopMessages.push(assistantMessage);
+                        yield { type: "message", message: assistantMessage };
+                }
+            }
         }
     }
 }

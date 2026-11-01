@@ -1,10 +1,9 @@
-import type { Provider } from "./provider.js";
+import type { Provider, ProviderStreamEvent } from "./provider.js";
 import Openai, { type OpenAIError } from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
 import { ModelError, type ModelErrorCode } from "../errors.js";
-import type { ModelStreamEvent } from "../../core/messages.js";
 
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
@@ -45,7 +44,7 @@ export class DeepSeekProvider implements Provider {
         }
     }
 
-    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ModelStreamEvent> {
+    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
 
         try {
             const responseStream = await this.client.responses.create({
