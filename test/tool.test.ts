@@ -96,10 +96,10 @@ for (const [label, func] of [
     });
 }
 
-test("preserves text tool output without adding JSON quotes", async () => {
+test("serializes text tool output as JSON, consistently with other tool results", async () => {
     const tool = new Tool({ name: "text", description: "Return text", parametersZodSchema: z.strictObject({}), func: () => "hello" });
 
-    assert.equal((await tool.execute({}, { callId: "text-1" })).toolOutput, "hello");
+    assert.equal((await tool.execute({}, { callId: "text-1" })).toolOutput, JSON.stringify("hello"));
 });
 
 test("exports JSON Schema in the SDK parameters field with descriptions and required keys", () => {

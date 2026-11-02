@@ -2,6 +2,7 @@ import { Model } from "../model/model.js";
 import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
 import { ProviderStreamEvent } from "../model/providers/provider.js";
+import { ModelError } from "../model/errors.js";
 
 export interface AgentConfig {
     model: Model;
@@ -120,6 +121,8 @@ export class Agent {
             try {
                 let modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
 
+                let isResponseCompleted = false;
+
                 for await (const chunk of modelResponseStream) {
 
                     switch (chunk.type) {
@@ -139,6 +142,7 @@ export class Agent {
 
                         case "message": {
                             loopMessages.push(chunk.message);
+                            isResponseCompleted = true;
 
                             if (chunk.message.toolCalls.length === 0) break agentLoop;
 
@@ -176,10 +180,16 @@ export class Agent {
                                 loopMessages.push(toolResultMessage);
                             }
 
-                            break; // This break is for the case block.
+                            break; // This break is for the switch case block.
                         }
                     }
                 }
+
+                // If the stream ends without a completed message, throw an error.
+                if(!isResponseCompleted){
+                    throw new ModelError("Model streaming response ended without a completed message.", "bad_response");
+                }
+
             } catch (error) {
                 yield {
                     status: "failed",

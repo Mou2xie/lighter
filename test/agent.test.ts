@@ -142,7 +142,7 @@ test("awaits an asynchronous tool before starting the next call in the same turn
 
     assert.deepEqual(order, ["first:start", "first:end", "second"]);
     assert.deepEqual(provider.requests[1]!.messages.filter(message => message.role === "tool").map(message => [message.callId, message.toolOutput]), [
-        ["first-1", "first result"], ["second-1", "second result"],
+        ["first-1", JSON.stringify("first result")], ["second-1", JSON.stringify("second result")],
     ]);
 });
 
@@ -218,7 +218,7 @@ for (const [label, failure] of [
     ["undefined", undefined],
 ] as const) {
     test(`an initial model failure preserves ${label} and returns no generated messages`, async () => {
-        const provider = new RecordingProvider({ name: "failing", invoke: async () => { throw failure; } });
+        const provider = new RecordingProvider({ name: "failing", async *stream() { throw failure; }, invoke: async () => { throw failure; } });
         const agent = new Agent({ model: new Model(provider) });
         const inputMessages = [new UserMessage("Hi")];
         const before = JSON.stringify(inputMessages);
@@ -239,6 +239,7 @@ test("a later model failure returns completed tools and supports continuation wi
     let modelCalls = 0;
     const provider = new RecordingProvider({
         name: "fail-after-tool",
+        async *stream() { throw new Error("Use invoke in this test"); },
         invoke: async () => {
             switch (++modelCalls) {
                 case 1: return toolReply("addition", '{"a":1,"b":2}', "completed-1");
@@ -355,6 +356,7 @@ test("concurrent runs with different input histories keep their local contexts i
     let requests = 0;
     const provider = new RecordingProvider({
         name: "concurrent",
+        async *stream() { throw new Error("Use invoke in this test"); },
         async invoke(messages) {
             assert.ok(++requests <= 2, "No unexpected follow-up request");
             const input = messages.at(-1);

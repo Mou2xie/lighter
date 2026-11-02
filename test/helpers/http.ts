@@ -1,25 +1,26 @@
 import assert from "node:assert/strict";
 import type { TestContext } from "node:test";
-import type { ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses.js";
+import type { ResponseCreateParams } from "openai/resources/responses/responses.js";
 
 interface HttpFixture {
     status?: number;
     body: unknown;
+    sse?: boolean;
 }
 
 export function mockHttp(t: TestContext, replies: readonly HttpFixture[]) {
-    const requests: { url: string; method: string; body: ResponseCreateParamsNonStreaming }[] = [];
+    const requests: { url: string; method: string; body: ResponseCreateParams }[] = [];
 
     t.mock.method(globalThis, "fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init);
-        const body = JSON.parse(await request.text()) as ResponseCreateParamsNonStreaming;
+        const body = JSON.parse(await request.text()) as ResponseCreateParams;
         const reply = replies[requests.length];
         requests.push({ url: request.url, method: request.method, body });
         assert.ok(reply, "Unexpected HTTP request: no fixture remains");
 
-        return new Response(JSON.stringify(reply.body), {
+        return new Response(reply.sse ? String(reply.body) : JSON.stringify(reply.body), {
             status: reply.status ?? 200,
-            headers: { "content-type": "application/json", "x-should-retry": "false" },
+            headers: { "content-type": reply.sse ? "text/event-stream" : "application/json", "x-should-retry": "false" },
         });
     });
 

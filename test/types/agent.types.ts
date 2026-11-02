@@ -27,3 +27,24 @@ void failed;
 void withoutError;
 void missingMessages;
 void invalidStatus;
+
+// Stream results are yielded events, so for-await consumers must distinguish
+// the final result from provider deltas using the current public union.
+async function inspectStream(agent: Agent) {
+    const stream: AsyncGenerator<import("../../agent/agent.js").AgentStreamEvent> = agent.stream([]);
+    for await (const event of stream) {
+        if ("status" in event) {
+            const result: AgentResult = event;
+            void result;
+        } else if (event.type === "message") {
+            const message: import("../../core/messages.js").AssistantMessage = event.message;
+            void message;
+        } else {
+            const text: string = event.text;
+            const kind: "reasoning_delta" | "text_delta" = event.type;
+            void text;
+            void kind;
+        }
+    }
+}
+void inspectStream;

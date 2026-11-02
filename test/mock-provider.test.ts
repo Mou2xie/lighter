@@ -16,3 +16,31 @@ test("MockProvider works through Model and yields a finite sequence of replies i
 test("an empty mock sequence fails explicitly instead of returning undefined", async () => {
     await assert.rejects(new Model(new MockProvider([])).invoke([], []), /no responses remaining/i);
 });
+
+test("MockProvider stream yields each final message once and shares exhaustion with invoke", async () => {
+    const first = new AssistantMessage("first");
+    const second = new AssistantMessage("second");
+    const model = new Model(new MockProvider([first, second]));
+    const items = [];
+    for await (const item of model.stream([], [])) items.push(item);
+    assert.deepEqual(items, [{ type: "message", message: first }]);
+    assert.equal(await model.invoke([], []), second);
+    await assert.rejects(async () => { for await (const _ of model.stream([], [])) {} }, /no responses remaining/i);
+});
+
+test("Model stream forwards event identity and closes the source on early return", async () => {
+    const delta = { type: "text_delta" as const, text: "first" };
+    let closed = false;
+    const model = new Model({
+        name: "cleanup",
+        async invoke() { throw new Error("Use stream"); },
+        async *stream() {
+            try { yield delta; throw new Error("Must not resume after cancellation"); }
+            finally { closed = true; }
+        },
+    });
+    const iterator = model.stream([], []);
+    assert.equal((await iterator.next()).value, delta);
+    await iterator.return(undefined);
+    assert.equal(closed, true);
+});

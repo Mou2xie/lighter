@@ -1,6 +1,6 @@
 import type { AssistantMessage, BaseMessages } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
-import type { Provider } from "../../model/providers/provider.js";
+import type { Provider, ProviderStreamEvent } from "../../model/providers/provider.js";
 
 export class RecordingProvider implements Provider {
     readonly name: string;
@@ -8,6 +8,11 @@ export class RecordingProvider implements Provider {
 
     constructor(private readonly wrapped: Provider) {
         this.name = wrapped.name;
+    }
+
+    async *stream(messages: BaseMessages, tools: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
+        this.requests.push({ messages: structuredClone(messages), tools: structuredClone(tools) });
+        yield* this.wrapped.stream(messages, tools);
     }
 
     async invoke(messages: BaseMessages, tools: ToolSpec[]): Promise<AssistantMessage> {

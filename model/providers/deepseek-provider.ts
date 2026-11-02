@@ -54,6 +54,8 @@ export class DeepSeekProvider implements Provider {
                 stream: true,
             });
 
+            let isResponseCompleted = false;
+
             for await (const chunk of responseStream) {
 
                 switch (chunk.type) {
@@ -72,6 +74,7 @@ export class DeepSeekProvider implements Provider {
                         break;
                     }
                     case "response.completed": {
+                        isResponseCompleted = true;
                         yield {
                             type: "message",
                             message: deepseekMessageAdapter.fromResponse(chunk.response),
@@ -85,6 +88,12 @@ export class DeepSeekProvider implements Provider {
                     }
                 }
             }
+
+            // If the stream ends without a completed message, throw an error.
+            if (!isResponseCompleted) {
+                throw new ModelError("DeepSeek streaming response ended without a completed message.", "bad_response");
+            }
+
         } catch (error) {
             if (error instanceof Openai.OpenAIError) {
                 throw deepseekErrorAdapter.toModelError(error);
