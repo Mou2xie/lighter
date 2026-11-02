@@ -44,7 +44,7 @@ export class Tool<ZSchema extends z.ZodObject = z.ZodObject> {
             return new ToolMessage({
                 callId: options.callId,
                 toolName: this.name,
-                toolOutput: JSON.stringify(error),
+                toolOutput: String(error),
                 isError: true
             });
         }

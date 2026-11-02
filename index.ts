@@ -1,7 +1,7 @@
 import { DeepSeekProvider } from "./model/providers/deepseek-provider.js";
 import { Model } from "./model/model.js";
 import { Agent } from "./agent/agent.js";
-import { UserMessage, SystemMessage, type BaseMessages, AssistantMessage } from "./core/messages.js";
+import { UserMessage, SystemMessage, type BaseMessages } from "./core/messages.js";
 import { Tool } from "./core/tool.js";
 import * as z from "zod";
 
@@ -13,61 +13,45 @@ const deepseekProvider = new DeepSeekProvider(apiKey, "deepseek-flash");
 
 const model = new Model(deepseekProvider);
 
-const stream = model.stream([
-    new UserMessage("What is 2 + 3?")
-], []);
+// create a simple addition tool.
+const additionTool = new Tool({
+    name: "addition",
+    description: "Adds two numbers together.",
+    parametersZodSchema: z.strictObject({
+        a: z.number().describe("The first number to add."),
+        b: z.number().describe("The second number to add."),
+    }),
+    func: (args) => {
+        return args.a + args.b;
+    }
+});
 
-for await (const chunk of stream) {
-    if (chunk.type === "reasoning_delta") {
+// create agent with model and addition tool.
+const agent = new Agent({
+    model,
+    tools: [additionTool],
+    systemPrompt: new SystemMessage(`
+        You are a primary school math teacher. You are very good at explaining math problems to students in a simple and easy-to-understand way.
+        `)
+});
+
+const inputMessages: BaseMessages = [
+    new UserMessage("What is 2 + 3?"),
+];
+
+const resultStream = agent.stream(inputMessages);
+
+for await (const chunk of resultStream) {
+    if ("status" in chunk) {
+        if (chunk.status === "completed") {
+            inputMessages.push(...chunk.messages);
+        }
+    } else if (
+        chunk.type === "reasoning_delta" ||
+        chunk.type === "text_delta"
+    ) {
         process.stdout.write(chunk.text);
-    } else if (chunk.type === "text_delta") {
-        process.stdout.write(chunk.text);
-    } else if (chunk.type === "message") {
-        console.log("\n\nFinal message:", chunk.message.content);
     }
 }
 
-
-// const model = new Model(deepseekProvider);
-
-// // create a simple addition tool.
-// const additionTool = new Tool({
-//     name: "addition",
-//     description: "Adds two numbers together.",
-//     parametersZodSchema: z.strictObject({
-//         a: z.number().describe("The first number to add."),
-//         b: z.number().describe("The second number to add."),
-//     }),
-//     func: (args) => {
-//         return args.a + args.b;
-//     }
-// });
-
-// // create agent with model and addition tool.
-// const agent = new Agent({
-//     model,
-//     tools: [additionTool],
-//     systemPrompt: new SystemMessage(`
-//         You are a primary school math teacher. You are very good at explaining math problems to students in a simple and easy-to-understand way.
-//         `)
-// });
-
-// const chatMessages: BaseMessages = [
-//     new UserMessage("What is 2 + 3?"),
-// ];
-
-// const { status, messages, error } = await agent.run(chatMessages);
-// chatMessages.push(...messages);
-
-// if (status === "completed") {
-//     console.log("Agent run completed successfully.");
-// } else {
-//     console.error("Agent run failed with error:", error);
-// }
-
-// const lastMessage = chatMessages.at(-1);
-// if (lastMessage instanceof AssistantMessage) {
-//     console.log(lastMessage.content);
-// }
-
-
+console.log("inputMessages:", inputMessages);

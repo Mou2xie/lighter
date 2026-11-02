@@ -15,16 +15,7 @@ export type AgentResult = {
     error?: unknown;
 }
 
-export type AgentStreamEvent =
-    | ProviderStreamEvent
-    | {
-        type: "tool_message";
-        message: ToolMessage;
-    }
-    | {
-        type: "result";
-        result: AgentResult;
-    };
+export type AgentStreamEvent = ProviderStreamEvent | AgentResult
 
 export class Agent {
     private model: Model;
@@ -126,24 +117,91 @@ export class Agent {
 
         const initialMessageCount = loopMessages.length;
 
+        agentLoop:
         while (true) {
-            
-            const modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
 
-            for await (const chunk of modelResponseStream) {
-                switch (chunk.type) {
-                    case "reasoning_delta":
-                        yield chunk;
-                        break;
-                    case "text_delta":
-                        yield chunk;
-                        break;
-                    case "message":
-                        const assistantMessage = chunk.message;
-                        loopMessages.push(assistantMessage);
-                        yield { type: "message", message: assistantMessage };
+            let modelResponseStream: AsyncGenerator<ProviderStreamEvent>;
+
+            try {
+                modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
+
+                for await (const chunk of modelResponseStream) {
+                    switch (chunk.type) {
+                        case "reasoning_delta":
+                            yield {
+                                type: "reasoning_delta",
+                                text: chunk.text
+                            }
+                            break;
+
+                        case "text_delta":
+                            yield {
+                                type: "text_delta",
+                                text: chunk.text
+                            }
+                            break;
+
+                        case "message": {
+                            loopMessages.push(chunk.message);
+
+                            if (chunk.message.toolCalls && chunk.message.toolCalls.length > 0) {
+
+                                for (const toolCall of chunk.message.toolCalls) {
+                                    const tool = this.tools.find(tool => tool.name === toolCall.toolName);
+                                    if (!tool) {
+                                        loopMessages.push(new ToolMessage({
+                                            callId: toolCall.callId,
+                                            toolName: toolCall.toolName,
+                                            toolOutput: `Tool ${toolCall.toolName} not found.`,
+                                            isError: true
+                                        }));
+                                        continue;
+                                    }
+
+                                    let parsedArgs: unknown;
+
+                                    try {
+                                        parsedArgs = JSON.parse(toolCall.arguments);
+                                    } catch (error) {
+                                        loopMessages.push(new ToolMessage({
+                                            callId: toolCall.callId,
+                                            toolName: toolCall.toolName,
+                                            toolOutput: `Invalid JSON arguments: ${String(error)}`,
+                                            isError: true,
+                                        }));
+                                        continue;
+                                    }
+
+                                    const toolResultMessage = await tool.execute(parsedArgs, {
+                                        callId: toolCall.callId,
+                                    });
+
+                                    loopMessages.push(toolResultMessage);
+                                }
+                            } else {
+                                break agentLoop;
+                            }
+
+                            break; // This break is to break the switch.
+                        }
+                    }
+                }
+            } catch (error) {
+                yield {
+                    status: "failed",
+                    messages: loopMessages.slice(initialMessageCount),
+                    error,
                 }
             }
+
+
+        }
+
+        const newMessages = loopMessages.slice(initialMessageCount);
+
+        yield {
+            status: "completed",
+            messages: newMessages
         }
     }
 }
