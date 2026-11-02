@@ -21,6 +21,10 @@ export class MockProvider implements Provider {
 
     async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
         const message = await this.invoke(messages, toolSpecs);
-        yield { type: "message", message };
+        if (this.responseIndex < this.responses.length) {
+            yield { type: "message", message };
+        } else {
+            yield { type: "message", message };
+        }
     }
 }

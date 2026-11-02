@@ -57,47 +57,44 @@ export class Agent {
 
             loopMessages.push(modelResponse); // Append the model response to loop messages.
 
-            // handle tool calls if any.
-            if (modelResponse.toolCalls && modelResponse.toolCalls.length > 0) {
+            if (modelResponse.toolCalls.length === 0) break; // If there are no tool calls, exit the loop.
 
-                for (const toolCall of modelResponse.toolCalls) {
+            toolCallLoop:
+            for (const toolCall of modelResponse.toolCalls) {
 
-                    // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
-                    const tool = this.tools.find(tool => tool.name === toolCall.toolName);
-                    if (!tool) {
-                        loopMessages.push(new ToolMessage({
-                            callId: toolCall.callId,
-                            toolName: toolCall.toolName,
-                            toolOutput: `Tool ${toolCall.toolName} not found.`,
-                            isError: true
-                        }));
-                        continue;
-                    }
-
-                    // Parse the arguments for the tool call. If fails, push an error ToolMessage and continue to the next tool call.
-                    let parsedArgs: unknown;
-                    try {
-                        parsedArgs = JSON.parse(toolCall.arguments);
-                    } catch (error) {
-                        loopMessages.push(new ToolMessage({
-                            callId: toolCall.callId,
-                            toolName: toolCall.toolName,
-                            toolOutput: `Invalid JSON arguments: ${String(error)}`,
-                            isError: true,
-                        }));
-                        continue;
-                    }
-
-                    // Execute the tool and push the result to the loop messages.
-                    const toolResultMessage = await tool.execute(parsedArgs, {
+                // Find the tool by name. If not found, push an error ToolMessage and continue to the next tool call.
+                const tool = this.tools.find(tool => tool.name === toolCall.toolName);
+                if (!tool) {
+                    loopMessages.push(new ToolMessage({
                         callId: toolCall.callId,
-                    });
-                    loopMessages.push(toolResultMessage);
+                        toolName: toolCall.toolName,
+                        toolOutput: `Tool ${toolCall.toolName} not found.`,
+                        isError: true
+                    }));
+                    continue toolCallLoop;
                 }
-            } else {
-                // No more tool calls means the agent has job done, it's safe to quit loop and return the response. 
-                break;
+
+                // Parse the arguments for the tool call. If fails, push an error ToolMessage and continue to the next tool call.
+                let parsedArgs: unknown;
+                try {
+                    parsedArgs = JSON.parse(toolCall.arguments);
+                } catch (error) {
+                    loopMessages.push(new ToolMessage({
+                        callId: toolCall.callId,
+                        toolName: toolCall.toolName,
+                        toolOutput: `Invalid JSON arguments: ${String(error)}`,
+                        isError: true,
+                    }));
+                    continue toolCallLoop;
+                }
+
+                // Execute the tool and push the result to the loop messages.
+                const toolResultMessage = await tool.execute(parsedArgs, {
+                    callId: toolCall.callId,
+                });
+                loopMessages.push(toolResultMessage);
             }
+
         };
         // return new messages generated in this run, excluding the initial messages.
         const newMessages = loopMessages.slice(initialMessageCount);
@@ -120,12 +117,11 @@ export class Agent {
         agentLoop:
         while (true) {
 
-            let modelResponseStream: AsyncGenerator<ProviderStreamEvent>;
-
             try {
-                modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
+                let modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
 
                 for await (const chunk of modelResponseStream) {
+
                     switch (chunk.type) {
                         case "reasoning_delta":
                             yield {
@@ -144,45 +140,43 @@ export class Agent {
                         case "message": {
                             loopMessages.push(chunk.message);
 
-                            if (chunk.message.toolCalls && chunk.message.toolCalls.length > 0) {
+                            if (chunk.message.toolCalls.length === 0) break agentLoop;
 
-                                for (const toolCall of chunk.message.toolCalls) {
-                                    const tool = this.tools.find(tool => tool.name === toolCall.toolName);
-                                    if (!tool) {
-                                        loopMessages.push(new ToolMessage({
-                                            callId: toolCall.callId,
-                                            toolName: toolCall.toolName,
-                                            toolOutput: `Tool ${toolCall.toolName} not found.`,
-                                            isError: true
-                                        }));
-                                        continue;
-                                    }
-
-                                    let parsedArgs: unknown;
-
-                                    try {
-                                        parsedArgs = JSON.parse(toolCall.arguments);
-                                    } catch (error) {
-                                        loopMessages.push(new ToolMessage({
-                                            callId: toolCall.callId,
-                                            toolName: toolCall.toolName,
-                                            toolOutput: `Invalid JSON arguments: ${String(error)}`,
-                                            isError: true,
-                                        }));
-                                        continue;
-                                    }
-
-                                    const toolResultMessage = await tool.execute(parsedArgs, {
+                            toolCallLoop:
+                            for (const toolCall of chunk.message.toolCalls) {
+                                const tool = this.tools.find(tool => tool.name === toolCall.toolName);
+                                if (!tool) {
+                                    loopMessages.push(new ToolMessage({
                                         callId: toolCall.callId,
-                                    });
-
-                                    loopMessages.push(toolResultMessage);
+                                        toolName: toolCall.toolName,
+                                        toolOutput: `Tool ${toolCall.toolName} not found.`,
+                                        isError: true
+                                    }));
+                                    continue toolCallLoop;
                                 }
-                            } else {
-                                break agentLoop;
+
+                                let parsedArgs: unknown;
+
+                                try {
+                                    parsedArgs = JSON.parse(toolCall.arguments);
+                                } catch (error) {
+                                    loopMessages.push(new ToolMessage({
+                                        callId: toolCall.callId,
+                                        toolName: toolCall.toolName,
+                                        toolOutput: `Invalid JSON arguments: ${String(error)}`,
+                                        isError: true,
+                                    }));
+                                    continue toolCallLoop;
+                                }
+
+                                const toolResultMessage = await tool.execute(parsedArgs, {
+                                    callId: toolCall.callId,
+                                });
+
+                                loopMessages.push(toolResultMessage);
                             }
 
-                            break; // This break is to break the switch.
+                            break; // This break is for the case block.
                         }
                     }
                 }
@@ -192,9 +186,9 @@ export class Agent {
                     messages: loopMessages.slice(initialMessageCount),
                     error,
                 }
+
+                return;
             }
-
-
         }
 
         const newMessages = loopMessages.slice(initialMessageCount);

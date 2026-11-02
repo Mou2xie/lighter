@@ -55,6 +55,7 @@ export class DeepSeekProvider implements Provider {
             });
 
             for await (const chunk of responseStream) {
+
                 switch (chunk.type) {
                     case "response.reasoning_text.delta": {
                         yield {
@@ -75,15 +76,12 @@ export class DeepSeekProvider implements Provider {
                             type: "message",
                             message: deepseekMessageAdapter.fromResponse(chunk.response),
                         }
-                        return;
+                        break;
                     }
                     case "response.failed":
                     case "response.incomplete": {
                         deepseekErrorAdapter.checkResponseStatus(chunk.response);
                         break;
-                    }
-                    case "error": {
-                        throw new ModelError(chunk.message, "bad_response");
                     }
                 }
             }
