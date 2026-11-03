@@ -1,6 +1,7 @@
 import type { Provider, ProviderStreamEvent } from "./provider.js";
 import type { BaseMessages, AssistantMessage } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
+import { AgentRequest } from "../../agent/agent.js";
 
 // Used for testing and development purposes.
 export class MockProvider implements Provider {
@@ -11,7 +12,7 @@ export class MockProvider implements Provider {
     constructor(responses: AssistantMessage[]) {
         this.responses = responses;
     }
-    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+    async invoke(agentRequest: AgentRequest): Promise<AssistantMessage> {
         if (this.responseIndex < this.responses.length) {
             return this.responses[this.responseIndex++];
         } else {
@@ -19,8 +20,8 @@ export class MockProvider implements Provider {
         }
     }
 
-    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
-        const message = await this.invoke(messages, toolSpecs);
+    async *stream(agentRequest: AgentRequest): AsyncGenerator<ProviderStreamEvent> {
+        const message = await this.invoke(agentRequest);
         if (this.responseIndex < this.responses.length) {
             yield { type: "message", message };
         } else {

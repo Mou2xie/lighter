@@ -39,7 +39,7 @@ const inputMessages: BaseMessages = [
     new UserMessage("What is 2 + 3?"),
 ];
 
-const resultStream = agent.stream(inputMessages);
+const resultStream = agent.stream({ messages: inputMessages });
 
 for await (const chunk of resultStream) {
     if ("status" in chunk) {

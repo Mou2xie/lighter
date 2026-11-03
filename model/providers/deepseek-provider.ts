@@ -1,8 +1,7 @@
-import type { Provider, ProviderStreamEvent } from "./provider.js";
+import type { Provider, ProviderStreamEvent, ProviderRequest } from "./provider.js";
 import Openai, { type OpenAIError } from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
 import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
-import type { ToolSpec } from "../../core/tool.js";
 import { ModelError, type ModelErrorCode } from "../errors.js";
 
 
@@ -23,7 +22,9 @@ export class DeepSeekProvider implements Provider {
         this.modelID = modelID;
     }
 
-    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
+    async invoke(providerRequest: ProviderRequest): Promise<AssistantMessage> {
+
+        const { messages, toolSpecs = [] } = providerRequest;
 
         try {
             const response = await this.client.responses.create({
@@ -44,7 +45,9 @@ export class DeepSeekProvider implements Provider {
         }
     }
 
-    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
+    async *stream(providerRequest: ProviderRequest): AsyncGenerator<ProviderStreamEvent> {
+
+        const { messages, toolSpecs = [] } = providerRequest;
 
         try {
             const responseStream = await this.client.responses.create({

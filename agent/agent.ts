@@ -18,6 +18,10 @@ export type AgentResult = {
 
 export type AgentStreamEvent = ProviderStreamEvent | AgentResult
 
+export interface AgentRequest {
+    messages: BaseMessages;
+}
+
 export class Agent {
     private model: Model;
     private tools: Tool[];
@@ -29,7 +33,9 @@ export class Agent {
         this.systemPrompt = config.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
     }
 
-    async run(inputMessages: BaseMessages): Promise<AgentResult> {
+    async run(agentRequest: AgentRequest): Promise<AgentResult> {
+
+        const inputMessages = agentRequest.messages;
 
         // Merge system prompt and input messages to form the context for this run.
         const loopMessages: BaseMessages = [
@@ -46,7 +52,10 @@ export class Agent {
             let modelResponse: AssistantMessage;
 
             try {
-                modelResponse = await this.model.invoke(loopMessages, this.tools.map(tool => tool.getSpec()));
+                modelResponse = await this.model.invoke({
+                    messages: loopMessages,
+                    toolSpecs: this.tools.map(tool => tool.getSpec()),
+                });
             } catch (error) {
                 // If the model invocation fails, return a failed result with the error and any messages generated so far.
                 return {
@@ -106,7 +115,9 @@ export class Agent {
         }
     }
 
-    async *stream(inputMessages: BaseMessages): AsyncGenerator<AgentStreamEvent> {
+    async *stream(agentRequest: AgentRequest): AsyncGenerator<AgentStreamEvent> {
+
+        const inputMessages = agentRequest.messages;
 
         const loopMessages: BaseMessages = [
             this.systemPrompt,
@@ -119,7 +130,10 @@ export class Agent {
         while (true) {
 
             try {
-                let modelResponseStream = this.model.stream(loopMessages, this.tools.map(tool => tool.getSpec()));
+                let modelResponseStream = this.model.stream({
+                    messages: loopMessages,
+                    toolSpecs: this.tools.map(tool => tool.getSpec()),
+                });
 
                 let isResponseCompleted = false;
 
@@ -186,7 +200,7 @@ export class Agent {
                 }
 
                 // If the stream ends without a completed message, throw an error.
-                if(!isResponseCompleted){
+                if (!isResponseCompleted) {
                     throw new ModelError("Model streaming response ended without a completed message.", "bad_response");
                 }
 

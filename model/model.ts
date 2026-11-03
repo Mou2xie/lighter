@@ -1,6 +1,7 @@
-import type { Provider, ProviderStreamEvent } from "./providers/provider.js";
-import type { BaseMessages, AssistantMessage } from "../core/messages.js";
-import type { ToolSpec } from "../core/tool.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "./providers/provider.js";
+import type { AssistantMessage } from "../core/messages.js";
+
+export type ModelRequest = ProviderRequest;
 
 export class Model {
     readonly provider: Provider;
@@ -9,12 +10,12 @@ export class Model {
         this.provider = provider;
     }
 
-    async invoke(messages: BaseMessages, toolSpecs: ToolSpec[]): Promise<AssistantMessage> {
-        return await this.provider.invoke(messages, toolSpecs);
+    async invoke(modelRequest: ModelRequest): Promise<AssistantMessage> {
+        return await this.provider.invoke(modelRequest);
     }
 
-    async *stream(messages: BaseMessages, toolSpecs: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
-        const responseStream = this.provider.stream(messages, toolSpecs);
+    async *stream(modelRequest: ModelRequest): AsyncGenerator<ProviderStreamEvent> {
+        const responseStream = this.provider.stream(modelRequest);
         for await (const chunk of responseStream) {
             yield chunk;
         }
