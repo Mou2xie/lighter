@@ -17,17 +17,17 @@ export interface AgentConfig {
     };
 }
 
-export type AgentResult = {
+export interface AgentRequest {
+    messages: BaseMessages;
+}
+
+export type AgentResponse = {
     status: "completed" | "failed";
     messages: BaseMessages;
     error?: unknown;
 }
 
-export type AgentStreamEvent = ProviderStreamEvent | AgentResult
-
-export interface AgentRequest {
-    messages: BaseMessages;
-}
+export type AgentStreamEvent = ProviderStreamEvent | AgentResponse;
 
 export class Agent {
     private model: Model;
@@ -47,13 +47,15 @@ export class Agent {
         this.hooks = config.hooks ?? {};
     }
 
-    async run(agentRequest: AgentRequest): Promise<AgentResult> {
+    async run(agentRequest: AgentRequest): Promise<AgentResponse> {
 
+        let _agentRequest = { ...agentRequest };
+
+        // Execute the beforeAgent hook if it exists
         if (this.hooks.beforeAgent) {
             try {
-                agentRequest = await this.hooks.beforeAgent.execute(agentRequest);
+                _agentRequest = await this.hooks.beforeAgent.execute(_agentRequest);
             } catch (error) {
-                // If the beforeAgent hook fails, return a failed result with the error.
                 return {
                     status: "failed",
                     messages: [],
@@ -62,7 +64,7 @@ export class Agent {
             }
         }
 
-        const inputMessages = agentRequest.messages;
+        const inputMessages = _agentRequest.messages;
 
         // Merge system prompt and input messages to form the context for this run.
         const loopMessages: BaseMessages = [
@@ -137,11 +139,12 @@ export class Agent {
 
         };
         // return new messages generated in this run, excluding the initial messages.
-        const newMessages = loopMessages.slice(initialMessageCount);
+        let newMessages = loopMessages.slice(initialMessageCount);
 
+        // Execute the afterAgent hook if it exists
         if (this.hooks.afterAgent) {
             try {
-                return await this.hooks.afterAgent.execute(newMessages);
+                newMessages = await this.hooks.afterAgent.execute(newMessages);
             } catch (error) {
                 return {
                     status: "failed",
@@ -159,11 +162,13 @@ export class Agent {
 
     async *stream(agentRequest: AgentRequest): AsyncGenerator<AgentStreamEvent> {
 
+        let _agentRequest = { ...agentRequest };
+
+        // Execute the beforeAgent hook if it exists
         if (this.hooks.beforeAgent) {
             try {
-                agentRequest = await this.hooks.beforeAgent.execute(agentRequest);
+                _agentRequest = await this.hooks.beforeAgent.execute(_agentRequest);
             } catch (error) {
-                // If the beforeAgent hook fails, return a failed result with the error.
                 yield {
                     status: "failed",
                     messages: [],
@@ -173,7 +178,7 @@ export class Agent {
             }
         }
 
-        const inputMessages = agentRequest.messages;
+        const inputMessages = _agentRequest.messages;
 
         const loopMessages: BaseMessages = [
             this.systemPrompt,
@@ -274,13 +279,13 @@ export class Agent {
             }
         }
 
-        const newMessages = loopMessages.slice(initialMessageCount);
+        let newMessages = loopMessages.slice(initialMessageCount);
 
+        // Execute the afterAgent hook if it exists
         if (this.hooks.afterAgent) {
-            let result: AgentResult;
 
             try {
-                result = await this.hooks.afterAgent.execute(newMessages);
+                newMessages = await this.hooks.afterAgent.execute(newMessages);
             } catch (error) {
                 yield {
                     status: "failed",
@@ -289,9 +294,6 @@ export class Agent {
                 };
                 return;
             }
-
-            yield result;
-            return;
         }
 
         yield {

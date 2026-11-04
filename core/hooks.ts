@@ -1,11 +1,13 @@
 import type { ModelRequest } from "../model/model.js";
 import { AssistantMessage } from "../core/messages.js";
 import { AgentRequest } from "../agent/agent.js";
-import { AgentResult } from "../agent/agent.js";
+import { AgentResponse } from "../agent/agent.js";
 import { BaseMessages } from "../core/messages.js";
 
+// BeforeModelHook
+// --------------------------------------------------------------------------
 type BeforeModelHookFunction = (
-    request: ModelRequest,
+    modelRequest: ModelRequest,
 ) => ModelRequest | void | Promise<ModelRequest | void>;
 
 export class BeforeModelHook {
@@ -24,12 +26,16 @@ export class BeforeModelHook {
     }
 
     async execute(modelRequest: ModelRequest): Promise<ModelRequest> {
-        const response = await this.hookFunction(modelRequest);
-        return response ?? modelRequest;
+        const newModelRequest = await this.hookFunction(modelRequest);
+        return newModelRequest ?? modelRequest;
     }
 }
 
-type AfterModelHookFunction = (message: AssistantMessage) => AssistantMessage | void | Promise<AssistantMessage | void>;
+// AfterModelHook
+// --------------------------------------------------------------------------
+type AfterModelHookFunction = (
+    assistantMessage: AssistantMessage
+) => AssistantMessage | void | Promise<AssistantMessage | void>;
 
 export class AfterModelHook {
     readonly hookName: string;
@@ -42,13 +48,17 @@ export class AfterModelHook {
         this.hookFunction = config.hookFunction;
     }
 
-    async execute(message: AssistantMessage): Promise<AssistantMessage> {
-        const response = await this.hookFunction(message);
-        return response ?? message;
+    async execute(assistantMessage: AssistantMessage): Promise<AssistantMessage> {
+        const newAssistantMessage = await this.hookFunction(assistantMessage);
+        return newAssistantMessage ?? assistantMessage;
     }
 }
 
-type BeforeAgentHookFunction = (agentRequest: AgentRequest) => Promise<AgentRequest | void> | AgentRequest | void;
+// BeforeAgentHook
+// --------------------------------------------------------------------------
+type BeforeAgentHookFunction = (
+    agentRequest: AgentRequest
+) => Promise<AgentRequest | void> | AgentRequest | void;
 
 export class BeforeAgentHook {
     readonly hookName: string;
@@ -71,7 +81,11 @@ export class BeforeAgentHook {
     }
 }
 
-type AfterAgentHookFunction = (messages: BaseMessages) => Promise<AgentResult | void> | AgentResult | void;
+// AfterAgentHook
+// --------------------------------------------------------------------------
+type AfterAgentHookFunction = (
+    messages: BaseMessages
+) => Promise<BaseMessages | void> | BaseMessages | void;
 
 export class AfterAgentHook {
     readonly hookName: string;
@@ -88,9 +102,9 @@ export class AfterAgentHook {
         this.hookFunction = config.hookFunction;
     }
 
-    async execute(messages: BaseMessages): Promise<AgentResult> {
-        const response = await this.hookFunction(messages);
-        return response ?? { status: "completed", messages };
+    async execute(messages: BaseMessages): Promise<BaseMessages> {
+        const newMessages = await this.hookFunction(messages);
+        return newMessages ?? messages;
     }
 }
 

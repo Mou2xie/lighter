@@ -12,19 +12,27 @@ export class Model {
     }
 
     async invoke(modelRequest: ModelRequest, hooks?: { beforeModel?: BeforeModelHook, afterModel?: AfterModelHook }): Promise<AssistantMessage> {
+        let _modelRequest = { ...modelRequest };
+        // Execute the beforeModel hook if it exists
+        hooks?.beforeModel && (_modelRequest = await hooks.beforeModel.execute(_modelRequest));
 
-        hooks?.beforeModel && (modelRequest = await hooks.beforeModel.execute(modelRequest));
-        let response = await this.provider.invoke(modelRequest);
+        let response = await this.provider.invoke(_modelRequest);
+
+        // Execute the afterModel hook if it exists
         hooks?.afterModel && (response = await hooks.afterModel.execute(response));
+
         return response
     }
 
     async *stream(modelRequest: ModelRequest, hooks?: { beforeModel?: BeforeModelHook, afterModel?: AfterModelHook }): AsyncGenerator<ProviderStreamEvent> {
-        if (hooks?.beforeModel) {
-            modelRequest = await hooks.beforeModel.execute(modelRequest);
-        }
-        const responseStream = this.provider.stream(modelRequest);
+        let _modelRequest = { ...modelRequest };
+        // Execute the beforeModel hook if it exists
+        hooks?.beforeModel && (_modelRequest = await hooks.beforeModel.execute(_modelRequest));
+
+        const responseStream = this.provider.stream(_modelRequest);
+
         for await (let chunk of responseStream) {
+            // Execute the afterModel hook if it exists and the chunk type is "message"
             if (chunk.type === "message") {
                 hooks?.afterModel && (chunk.message = await hooks.afterModel.execute(chunk.message));
             }
