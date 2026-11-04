@@ -1,10 +1,10 @@
-import type { Agent, AgentResult } from "../../agent/agent.js";
+import type { Agent, AgentResponse } from "../../agent/agent.js";
 import type { BaseMessages } from "../../core/messages.js";
 
 // Compile-only checks for the current public API. Error is optional on the
 // result type; runtime tests separately check that caught failures preserve it.
 function inspectResult(result: Awaited<ReturnType<Agent["run"]>>) {
-    const publicResult: AgentResult = result;
+    const publicResult: AgentResponse = result;
     const messages: BaseMessages = publicResult.messages;
     const error: unknown = publicResult.error;
     const status: "completed" | "failed" = publicResult.status;
@@ -13,13 +13,13 @@ function inspectResult(result: Awaited<ReturnType<Agent["run"]>>) {
     return messages;
 }
 
-const completed: AgentResult = { status: "completed", messages: [] };
-const failed: AgentResult = { status: "failed", messages: [], error: new Error("Unavailable") };
-const withoutError: AgentResult = { status: "failed", messages: [] };
+const completed: AgentResponse = { status: "completed", messages: [] };
+const failed: AgentResponse = { status: "failed", messages: [], error: new Error("Unavailable") };
+const withoutError: AgentResponse = { status: "failed", messages: [] };
 // @ts-expect-error Every result must contain its generated messages.
-const missingMessages: AgentResult = { status: "completed" };
+const missingMessages: AgentResponse = { status: "completed" };
 // @ts-expect-error Only completed and failed are supported run statuses.
-const invalidStatus: AgentResult = { status: "cancelled", messages: [] };
+const invalidStatus: AgentResponse = { status: "cancelled", messages: [] };
 
 void inspectResult;
 void completed;
@@ -34,7 +34,7 @@ async function inspectStream(agent: Agent) {
     const stream: AsyncGenerator<import("../../agent/agent.js").AgentStreamEvent> = agent.stream({ messages: [] });
     for await (const event of stream) {
         if ("status" in event) {
-            const result: AgentResult = event;
+            const result: AgentResponse = event;
             void result;
         } else if (event.type === "message") {
             const message: import("../../core/messages.js").AssistantMessage = event.message;

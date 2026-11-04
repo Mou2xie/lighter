@@ -2,7 +2,7 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { Agent, type AgentResult } from "../agent/agent.js";
+import { Agent, type AgentResponse } from "../agent/agent.js";
 import { BeforeModelHook } from "../core/hooks.js";
 import { AssistantMessage, UserMessage, type BaseMessages } from "../core/messages.js";
 import { Tool, type ToolSpec } from "../core/tool.js";
@@ -12,11 +12,11 @@ import { RecordingProvider } from "./helpers/recording-provider.js";
 import { assertCompletedRun, assertFailedRun } from "./helpers/run-result.js";
 import { collect } from "./helpers/stream.js";
 
-async function run(agent: Agent, mode: "run" | "stream", messages: BaseMessages): Promise<AgentResult> {
+async function run(agent: Agent, mode: "run" | "stream", messages: BaseMessages): Promise<AgentResponse> {
     if (mode === "run") return agent.run({ messages });
     const items = await collect(agent.stream({ messages }));
     const last = items.at(-1);
-    assert.ok(last && "status" in last, "Expected one terminal AgentResult");
+    assert.ok(last && "status" in last, "Expected one terminal AgentResponse");
     assert.equal(items.filter(item => "status" in item).length, 1);
     return last;
 }

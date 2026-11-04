@@ -20,7 +20,7 @@ pnpm exec node --import tsx --test --test-timeout=10000 test/agent.test.ts
 
 ## Current behavior
 
-`Agent.run({ messages: inputMessages })` returns an `AgentResult`:
+`Agent.run({ messages: inputMessages })` returns an `AgentResponse`:
 
 ```ts
 {
@@ -35,7 +35,7 @@ pnpm exec node --import tsx --test --test-timeout=10000 test/agent.test.ts
 When a model request throws, the agent returns `status: "failed"`, the messages generated so far, and the original thrown value in `error`. The type declares `error` as optional; runtime tests check that caught model failures preserve it, including when the thrown value is `undefined`. Provider invocation itself rejects on failure.
 
 `Agent.stream({ messages: inputMessages })` returns an async generator. It yields `reasoning_delta`
-and `text_delta` events as they arrive, then yields one terminal `AgentResult`.
+and `text_delta` events as they arrive, then yields one terminal `AgentResponse`.
 The current agent consumes provider `message` events internally; complete assistant
 and tool messages appear in the terminal result. Partial deltas are not committed
 messages. Breaking consumption at a delta closes the underlying iterator and
@@ -55,7 +55,7 @@ they prevent the provider call and preserve previously completed tool progress.
 
 | File | Coverage |
 | --- | --- |
-| `agent-hooks.test.ts` | Before-agent request replacement and once-per-run timing, after-agent result replacement and no-op behavior, one terminal stream result, and lifecycle-hook failures |
+| `agent-hooks.test.ts` | Before-agent request replacement and once-per-run timing, after-agent message-array replacement and no-op behavior, one terminal stream response, and lifecycle-hook failures |
 | `after-model-hook.test.ts` | Complete response replacement, sync/async no-op and error behavior, async waiting, before/provider/after ordering, unchanged deltas, iterator cleanup, and Agent forwarding regressions |
 | `before-model-hook.test.ts` | Replacement requests and tool definitions, awaited async callbacks, sync/async no-op and failure behavior, hook execution on every model turn, retained tool progress, and request-array isolation regressions |
 | `agent-stream.test.ts` | Lazy iteration, incremental delivery, tool ordering and errors, complete context, partial failures and continuation, iterator cleanup, and missing-message regressions |
@@ -68,6 +68,7 @@ they prevent the provider call and preserve previously completed tool progress.
 | `offline.test.ts` | Rejection of unmocked fetch calls |
 | `types/tool.types.ts` | Tool argument inference and accepting unvalidated execution input |
 | `types/agent.types.ts` | The current `run` return type and `stream` event narrowing, generated messages, supported statuses, and optional error |
+| `types/hooks.types.ts` | After-agent message-array input/output, sync/async replacement and no-op callbacks, and rejection of complete response objects as callback results |
 
 `ModelError.code` provides the common error category. `httpStatus` retains an HTTP error's status code; `responseStatus` retains a generation status such as `failed` or `incomplete`. Tests check these separately. Network failures can have neither field. Unexpected non-SDK exceptions propagate unchanged.
 
@@ -120,9 +121,14 @@ Both modes invoke `beforeAgent` once and deliver only one result after
 original error and any generated progress. In stream mode, failures are yielded
 before the generator returns, so for-await consumers receive the terminal result.
 
-The tests retain the current `AfterAgentHook` callback input of generated
-messages. They do not define whether this hook should run after model failures
-or consumer cancellation; those lifecycle semantics still need a separate decision.
+`AfterAgentHook` receives the generated `BaseMessages` array and may return a
+replacement array or nothing, synchronously or asynchronously. Agent wraps that
+array in a completed `AgentResponse`; the callback does not return the complete
+response object. Compile-only checks also enforce this distinction.
+
+The current implementation skips `afterAgent` when model execution fails or
+stream consumption is cancelled. The lifecycle tests do not establish those
+paths as a stable public contract.
 
 Successful string tool outputs are JSON-serialized by the current implementation,
 so tests expect `JSON.stringify("hello")`, including JSON quotes.

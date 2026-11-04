@@ -11,7 +11,7 @@ import { collect, events, ScriptedStreamProvider } from "./helpers/stream.js";
 
 function result(items: AgentStreamEvent[]) {
     const last = items.at(-1);
-    assert.ok(last && "status" in last, "The last yielded event must be an AgentResult");
+    assert.ok(last && "status" in last, "The last yielded event must be an AgentResponse");
     assert.equal(items.filter(item => "status" in item).length, 1);
     return last;
 }

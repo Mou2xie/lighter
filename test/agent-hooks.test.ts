@@ -2,9 +2,9 @@ import "./helpers/offline.js";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as z from "zod";
-import { Agent, type AgentResult } from "../agent/agent.js";
+import { Agent, type AgentResponse } from "../agent/agent.js";
 import { BeforeAgentHook, AfterAgentHook } from "../core/hooks.js";
-import { AssistantMessage, UserMessage } from "../core/messages.js";
+import { AssistantMessage, UserMessage, type BaseMessages } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { MockProvider } from "../model/providers/mock-provider.js";
@@ -13,12 +13,12 @@ import { assertCompletedRun, assertFailedRun } from "./helpers/run-result.js";
 import { collect } from "./helpers/stream.js";
 
 type Mode = "run" | "stream";
-async function run(agent: Agent, mode: Mode): Promise<AgentResult> {
+async function run(agent: Agent, mode: Mode): Promise<AgentResponse> {
     const request = { messages: [new UserMessage("Original input")] };
     if (mode === "run") return agent.run(request);
     const items = await collect(agent.stream(request));
     const results = items.filter(item => "status" in item);
-    assert.equal(results.length, 1, "Stream must yield exactly one terminal AgentResult");
+    assert.equal(results.length, 1, "Stream must yield exactly one terminal AgentResponse");
     const result = results[0];
     assert.ok(result);
     return result;
@@ -67,9 +67,9 @@ for (const mode of ["run", "stream"] as const) {
         assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
     });
 
-    test(`${mode}: awaits afterAgent and delivers its replacement as the only final result`, async () => {
+    test(`${mode}: awaits afterAgent and wraps its replacement messages in the only final response`, async () => {
         const provider = new RecordingProvider(new MockProvider([new AssistantMessage("Original reply")]));
-        const replacement: AgentResult = { status: "completed", messages: [new AssistantMessage("Formatted reply")] };
+        const replacement: BaseMessages = [new AssistantMessage("Formatted reply")];
         let calls = 0;
         const afterAgent = new AfterAgentHook({ hookName: "format", hookFunction: async messages => {
             calls++;
@@ -82,7 +82,7 @@ for (const mode of ["run", "stream"] as const) {
         } });
         const agent = new Agent({ model: new Model(provider), hooks: { afterAgent } });
         const result = await run(agent, mode);
-        assert.equal(result, replacement);
+        assert.equal(assertCompletedRun(result), replacement);
         assert.equal(calls, 1);
     });
 
