@@ -31,7 +31,7 @@ void invalidStatus;
 // Stream results are yielded events, so for-await consumers must distinguish
 // the final result from provider deltas using the current public union.
 async function inspectStream(agent: Agent) {
-    const stream: AsyncGenerator<import("../../agent/agent.js").AgentStreamEvent> = agent.stream([]);
+    const stream: AsyncGenerator<import("../../agent/agent.js").AgentStreamEvent> = agent.stream({ messages: [] });
     for await (const event of stream) {
         if ("status" in event) {
             const result: AgentResult = event;

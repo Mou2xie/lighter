@@ -13,7 +13,7 @@ import { mockHttp } from "./helpers/http.js";
 import { collect, sse } from "./helpers/stream.js";
 
 const provider = () => new DeepSeekProvider("offline-test-key", "deepseek-flash");
-const stream = () => provider().stream([new UserMessage("Hi")], []);
+const stream = () => provider().stream({ messages: [new UserMessage("Hi")], toolSpecs: [] });
 
 test("DeepSeek stream decodes real SSE deltas and uses the completed response for the final message", async t => {
     const http = mockHttp(t, [{ sse: true, body: sse(
@@ -25,7 +25,7 @@ test("DeepSeek stream decodes real SSE deltas and uses the completed response fo
         { type: "response.function_call_arguments.delta", delta: '{"n":' },
         { type: "response.completed", response: response([reasoning("想好了"), text("你好"), call("actual-call-id", "lookup", '{"n":1}')]) },
     ) }]);
-    const items = await collect(new Model(provider()).stream([new UserMessage("Hi")], []));
+    const items = await collect(new Model(provider()).stream({ messages: [new UserMessage("Hi")], toolSpecs: [] }));
     http.assertConsumed();
     assert.equal(http.requests[0]!.body.stream, true);
     assert.equal(http.requests[0]!.url, "https://api.deepseek.com/responses");
@@ -109,7 +109,7 @@ test("Agent stream completes through SDK and SSE without committing partial text
         { type: "response.output_text.delta", delta: "Hello" },
         { type: "response.completed", response: response([text("Hello")]) },
     ) }]);
-    const items = await collect(new Agent({ model: new Model(provider()) }).stream([new UserMessage("Hi")]));
+    const items = await collect(new Agent({ model: new Model(provider()) }).stream({ messages: [new UserMessage("Hi")] }));
     http.assertConsumed();
     assert.equal(items.length, 2);
     const last = items.at(-1);

@@ -1,6 +1,6 @@
 import type { AssistantMessage, BaseMessages } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
-import type { Provider, ProviderStreamEvent } from "../../model/providers/provider.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../model/providers/provider.js";
 
 export class RecordingProvider implements Provider {
     readonly name: string;
@@ -10,15 +10,15 @@ export class RecordingProvider implements Provider {
         this.name = wrapped.name;
     }
 
-    async *stream(messages: BaseMessages, tools: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
-        this.requests.push({ messages: structuredClone(messages), tools: structuredClone(tools) });
-        yield* this.wrapped.stream(messages, tools);
+    async *stream(request: ProviderRequest): AsyncGenerator<ProviderStreamEvent> {
+        this.requests.push({ messages: structuredClone(request.messages), tools: structuredClone(request.toolSpecs ?? []) });
+        yield* this.wrapped.stream(request);
     }
 
-    async invoke(messages: BaseMessages, tools: ToolSpec[]): Promise<AssistantMessage> {
+    async invoke(request: ProviderRequest): Promise<AssistantMessage> {
         // Agent appends to its local context after invoke returns. Snapshot
         // each request so later steps cannot change the recorded observation.
-        this.requests.push({ messages: structuredClone(messages), tools: structuredClone(tools) });
-        return this.wrapped.invoke(messages, tools);
+        this.requests.push({ messages: structuredClone(request.messages), tools: structuredClone(request.toolSpecs ?? []) });
+        return this.wrapped.invoke(request);
     }
 }

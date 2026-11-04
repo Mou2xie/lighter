@@ -22,7 +22,7 @@ test("a failed response rejects with ModelError instead of resolving to undefine
     } }]);
     const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-    await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+    await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
         assert.ok(error instanceof ModelError, "Response failures must remain explicit model errors");
         assert.equal(error.name, "ModelError");
         assert.equal(error.code, "bad_response");
@@ -43,7 +43,7 @@ test("an incomplete response rejects with ModelError instead of resolving to und
     } }]);
     const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-    await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+    await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
         assert.ok(error instanceof ModelError, "Incomplete generation must not become a successful result");
         assert.equal(error.code, "bad_response");
         assert.equal(error.responseStatus, "incomplete");
@@ -71,7 +71,7 @@ for (const [status, code] of httpErrors) {
         const http = mockHttp(t, [{ status, body: { error: { message: `Test HTTP ${status} failure`, code: "test_error" } } }]);
         const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-        await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+        await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, code);
             assert.equal(error.httpStatus, status);
@@ -99,7 +99,7 @@ for (const [label, makeError, code] of sdkErrors) {
         t.mock.method(Responses.prototype, "create", async () => { throw original; });
         const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-        await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+        await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, code);
             assert.equal(error.name, "ModelError");
@@ -116,7 +116,7 @@ test("unexpected non-SDK exceptions are rethrown unchanged", async t => {
     t.mock.method(Responses.prototype, "create", async () => { throw original; });
     const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-    await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => error === original);
+    await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => error === original);
 });
 
 for (const [status, code] of [
@@ -128,7 +128,7 @@ for (const [status, code] of [
         const http = mockHttp(t, [{ body: response([], { status }) }]);
         const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-        await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+        await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, code);
             assert.equal(error.responseStatus, status);
@@ -145,7 +145,7 @@ for (const status of ["failed", "incomplete"] as const) {
         const http = mockHttp(t, [{ body: response([], { status }) }]);
         const provider = new DeepSeekProvider("offline-test-key", "deepseek-flash");
 
-        await assert.rejects(provider.invoke([new UserMessage("Hi")], []), error => {
+        await assert.rejects(provider.invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
             assert.ok(error instanceof ModelError);
             assert.equal(error.code, "bad_response");
             assert.equal(error.responseStatus, status);
@@ -177,7 +177,7 @@ test("an incomplete response returns completed tool progress without executing t
     });
 
     const inputMessages = [new UserMessage("Add")];
-    const result = assertFailedRun(await agent.run(inputMessages));
+    const result = assertFailedRun(await agent.run({ messages: inputMessages }));
 
     http.assertConsumed();
     assert.equal(executions, 1);

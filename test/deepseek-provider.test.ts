@@ -29,7 +29,7 @@ test("sends a real SDK request through a mocked fetch with the correct endpoint 
     const messages = [new SystemMessage("Be concise"), new UserMessage("Hi")];
     const spec = makeAddition().getSpec();
 
-    const reply = await new Model(makeProvider()).invoke(messages, [spec]);
+    const reply = await new Model(makeProvider()).invoke({ messages: messages, toolSpecs: [spec] });
 
     http.assertConsumed();
     const request = http.requests[0]!;
@@ -63,7 +63,7 @@ test("preserves reasoning, call IDs, outputs and tool errors when adapting conve
     ];
     const before = JSON.stringify(messages);
 
-    await makeProvider().invoke(messages, []);
+    await makeProvider().invoke({ messages: messages, toolSpecs: [] });
 
     http.assertConsumed();
     const input = http.requests[0]!.body.input;
@@ -93,7 +93,7 @@ test("collects response text parts, reasoning and every tool call using call_id 
         call("call-lookup", "lookup", '{"id":42}'),
     ]) }]);
 
-    const reply = await makeProvider().invoke([new UserMessage("Go")], []);
+    const reply = await makeProvider().invoke({ messages: [new UserMessage("Go")], toolSpecs: [] });
 
     http.assertConsumed();
     assert.equal(reply.content, "Checking both");
@@ -107,7 +107,7 @@ test("collects response text parts, reasoning and every tool call using call_id 
 test("accepts a tool-only response without requiring assistant text or reasoning", async t => {
     const http = mockHttp(t, [{ body: response([call("call-only", "addition", '{"a":1,"b":2}')]) }]);
 
-    const reply = await makeProvider().invoke([new UserMessage("Go")], []);
+    const reply = await makeProvider().invoke({ messages: [new UserMessage("Go")], toolSpecs: [] });
 
     http.assertConsumed();
     assert.equal(reply.content, "");
@@ -118,7 +118,7 @@ test("accepts a tool-only response without requiring assistant text or reasoning
 test("handles reasoning items that omit their optional content", async t => {
     const http = mockHttp(t, [{ body: response([{ type: "reasoning", id: "rs_empty", summary: [] }, text("Hello")]) }]);
 
-    const reply = await makeProvider().invoke([new UserMessage("Hi")], []);
+    const reply = await makeProvider().invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] });
 
     http.assertConsumed();
     assert.equal(reply.content, "Hello");
@@ -128,7 +128,7 @@ test("handles reasoning items that omit their optional content", async t => {
 test("HTTP authentication failures reject instead of becoming successful empty replies", async t => {
     const http = mockHttp(t, [{ status: 401, body: { error: { message: "Invalid test key", type: "authentication_error", code: "invalid_api_key" } } }]);
 
-    await assert.rejects(makeProvider().invoke([new UserMessage("Hi")], []), error => {
+    await assert.rejects(makeProvider().invoke({ messages: [new UserMessage("Hi")], toolSpecs: [] }), error => {
         assert.ok(error instanceof ModelError);
         assert.equal(error.code, "auth_error");
         assert.equal(error.httpStatus, 401);
@@ -149,7 +149,7 @@ test("Agent returns the complete generated increment through the actual SDK and 
     const agent = new Agent({ model: new Model(makeProvider()), tools: [makeAddition(() => executions++)] });
 
     const inputMessages = [new UserMessage("31 + 17?")];
-    const messages = assertCompletedRun(await agent.run(inputMessages));
+    const messages = assertCompletedRun(await agent.run({ messages: inputMessages }));
 
     http.assertConsumed();
     assert.equal(executions, 1);

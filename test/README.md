@@ -20,7 +20,7 @@ pnpm exec node --import tsx --test --test-timeout=10000 test/agent.test.ts
 
 ## Current behavior
 
-`Agent.run(inputMessages)` returns an `AgentResult`:
+`Agent.run({ messages: inputMessages })` returns an `AgentResult`:
 
 ```ts
 {
@@ -34,7 +34,7 @@ pnpm exec node --import tsx --test --test-timeout=10000 test/agent.test.ts
 
 When a model request throws, the agent returns `status: "failed"`, the messages generated so far, and the original thrown value in `error`. The type declares `error` as optional; runtime tests check that caught model failures preserve it, including when the thrown value is `undefined`. Provider invocation itself rejects on failure.
 
-`Agent.stream(inputMessages)` returns an async generator. It yields `reasoning_delta`
+`Agent.stream({ messages: inputMessages })` returns an async generator. It yields `reasoning_delta`
 and `text_delta` events as they arrive, then yields one terminal `AgentResult`.
 The current agent consumes provider `message` events internally; complete assistant
 and tool messages appear in the terminal result. Partial deltas are not committed
@@ -44,10 +44,20 @@ tool that is already running.
 
 Tool lookup failures, invalid JSON, invalid arguments, and tool exceptions produce paired error messages for the model. Later tools in the same response still execute in order. Tools are awaited sequentially before the next model request.
 
+`Model.invoke` / `Model.stream` and provider methods accept a request object
+containing `messages` and optional `toolSpecs`. An Agent can configure
+`hooks: { beforeModel: new BeforeModelHook(...) }`. The hook runs before every
+model call in both modes, is awaited, and may return a replacement request or
+return nothing to retain the request. Model-hook failures become failed Agent results;
+they prevent the provider call and preserve previously completed tool progress.
+
 ## Coverage
 
 | File | Coverage |
 | --- | --- |
+| `agent-hooks.test.ts` | Before-agent request replacement and once-per-run timing, after-agent result replacement and no-op behavior, one terminal stream result, and lifecycle-hook failures |
+| `after-model-hook.test.ts` | Complete response replacement, sync/async no-op and error behavior, async waiting, before/provider/after ordering, unchanged deltas, iterator cleanup, and Agent forwarding regressions |
+| `before-model-hook.test.ts` | Replacement requests and tool definitions, awaited async callbacks, sync/async no-op and failure behavior, hook execution on every model turn, retained tool progress, and request-array isolation regressions |
 | `agent-stream.test.ts` | Lazy iteration, incremental delivery, tool ordering and errors, complete context, partial failures and continuation, iterator cleanup, and missing-message regressions |
 | `deepseek-stream.test.ts` | Real SDK SSE decoding, reasoning/text deltas, final-message extraction, HTTP and iteration-time errors, failed/incomplete status details, agent integration, and missing-terminal-response regressions |
 | `agent.test.ts` | Prompts, tool round trips and ordering, error correction, mixed valid/invalid calls, model failures and partial progress, caller-managed continuation, unchanged inputs, and independent/concurrent run contexts |
@@ -63,7 +73,7 @@ Tool lookup failures, invalid JSON, invalid arguments, and tool exceptions produ
 
 ## Stream completion regressions
 
-The full suite currently has **90 tests: all pass**. Type checking passes.
+The four stream-completion regression tests pass. Type checking passes.
 The four regression tests for missing complete responses remain active:
 
 - `agent-stream.test.ts`: an empty stream, or one ending after partial deltas,
@@ -74,6 +84,45 @@ The four regression tests for missing complete responses remain active:
 
 The completion flags reset for each request. Normal replies, tool-call follow-up
 turns, partial failures, and early consumer cancellation remain covered.
+
+## Before-model request isolation regression
+
+The before-model request-isolation regressions pass. Type checking passes.
+The two active regressions in `before-model-hook.test.ts` verify that both `run`
+and `stream` preserve generated replies when a hook trims its request array in
+place using `splice`.
+
+Agent creates an independent message array for each model request, preserving
+its internal history and the generated-message offset. Hook changes to the
+request array stay local to that model call. The tests cover array isolation,
+not deep immutability of nested message objects.
+Production implementation remains maintained by the user.
+
+## After-model hook integration
+
+The model-hook tests pass. Type checking passes.
+`AfterModelHook` and direct Model invocation/streaming pass their tests: callbacks
+run on complete messages, are awaited, may replace the result or return nothing,
+and propagate errors. Stream deltas remain unchanged; stopping before a complete
+message does not run the hook.
+
+Agent declares and forwards `afterModel` in both `run` and `stream`. The two active
+Agent regression tests verify that the hook runs on every model turn, modified
+tool arguments are executed and committed to history, and the final reply is
+also transformed.
+
+## Agent lifecycle hook regressions
+
+The full suite currently has **138 tests: all pass**. Type checking passes.
+`agent-hooks.test.ts` covers 12 cases around `beforeAgent` and `afterAgent`.
+Both modes invoke `beforeAgent` once and deliver only one result after
+`afterAgent`. Lifecycle callback errors become failed results, retaining the
+original error and any generated progress. In stream mode, failures are yielded
+before the generator returns, so for-await consumers receive the terminal result.
+
+The tests retain the current `AfterAgentHook` callback input of generated
+messages. They do not define whether this hook should run after model failures
+or consumer cancellation; those lifecycle semantics still need a separate decision.
 
 Successful string tool outputs are JSON-serialized by the current implementation,
 so tests expect `JSON.stringify("hello")`, including JSON quotes.

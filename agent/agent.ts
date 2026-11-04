@@ -3,11 +3,18 @@ import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage } from "../c
 import { Tool } from "../core/tool.js";
 import { ProviderStreamEvent } from "../model/providers/provider.js";
 import { ModelError } from "../model/errors.js";
+import { BeforeModelHook, AfterModelHook, BeforeAgentHook, AfterAgentHook } from "../core/hooks.js";
 
 export interface AgentConfig {
     model: Model;
     tools?: Tool[];
     systemPrompt?: SystemMessage;
+    hooks?: {
+        beforeModel?: BeforeModelHook;
+        afterModel?: AfterModelHook;
+        beforeAgent?: BeforeAgentHook;
+        afterAgent?: AfterAgentHook;
+    };
 }
 
 export type AgentResult = {
@@ -26,14 +33,34 @@ export class Agent {
     private model: Model;
     private tools: Tool[];
     private systemPrompt: SystemMessage;
+    private hooks: {
+        beforeModel?: BeforeModelHook;
+        afterModel?: AfterModelHook;
+        beforeAgent?: BeforeAgentHook;
+        afterAgent?: AfterAgentHook;
+    }
 
     constructor(config: AgentConfig) {
         this.model = config.model;
         this.tools = config.tools ?? [];
         this.systemPrompt = config.systemPrompt ?? new SystemMessage("You are a helpful assistant.");
+        this.hooks = config.hooks ?? {};
     }
 
     async run(agentRequest: AgentRequest): Promise<AgentResult> {
+
+        if (this.hooks.beforeAgent) {
+            try {
+                agentRequest = await this.hooks.beforeAgent.execute(agentRequest);
+            } catch (error) {
+                // If the beforeAgent hook fails, return a failed result with the error.
+                return {
+                    status: "failed",
+                    messages: [],
+                    error,
+                };
+            }
+        }
 
         const inputMessages = agentRequest.messages;
 
@@ -53,8 +80,11 @@ export class Agent {
 
             try {
                 modelResponse = await this.model.invoke({
-                    messages: loopMessages,
+                    messages: [...loopMessages],
                     toolSpecs: this.tools.map(tool => tool.getSpec()),
+                }, {
+                    beforeModel: this.hooks.beforeModel,
+                    afterModel: this.hooks.afterModel,
                 });
             } catch (error) {
                 // If the model invocation fails, return a failed result with the error and any messages generated so far.
@@ -109,6 +139,18 @@ export class Agent {
         // return new messages generated in this run, excluding the initial messages.
         const newMessages = loopMessages.slice(initialMessageCount);
 
+        if (this.hooks.afterAgent) {
+            try {
+                return await this.hooks.afterAgent.execute(newMessages);
+            } catch (error) {
+                return {
+                    status: "failed",
+                    messages: newMessages,
+                    error,
+                };
+            }
+        }
+
         return {
             status: "completed",
             messages: newMessages
@@ -116,6 +158,20 @@ export class Agent {
     }
 
     async *stream(agentRequest: AgentRequest): AsyncGenerator<AgentStreamEvent> {
+
+        if (this.hooks.beforeAgent) {
+            try {
+                agentRequest = await this.hooks.beforeAgent.execute(agentRequest);
+            } catch (error) {
+                // If the beforeAgent hook fails, return a failed result with the error.
+                yield {
+                    status: "failed",
+                    messages: [],
+                    error,
+                };
+                return;
+            }
+        }
 
         const inputMessages = agentRequest.messages;
 
@@ -131,8 +187,11 @@ export class Agent {
 
             try {
                 let modelResponseStream = this.model.stream({
-                    messages: loopMessages,
+                    messages: [...loopMessages],
                     toolSpecs: this.tools.map(tool => tool.getSpec()),
+                }, {
+                    beforeModel: this.hooks.beforeModel,
+                    afterModel: this.hooks.afterModel,
                 });
 
                 let isResponseCompleted = false;
@@ -216,6 +275,24 @@ export class Agent {
         }
 
         const newMessages = loopMessages.slice(initialMessageCount);
+
+        if (this.hooks.afterAgent) {
+            let result: AgentResult;
+
+            try {
+                result = await this.hooks.afterAgent.execute(newMessages);
+            } catch (error) {
+                yield {
+                    status: "failed",
+                    messages: newMessages,
+                    error,
+                };
+                return;
+            }
+
+            yield result;
+            return;
+        }
 
         yield {
             status: "completed",

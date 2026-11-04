@@ -1,6 +1,6 @@
 import type { BaseMessages } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
-import type { Provider, ProviderStreamEvent } from "../../model/providers/provider.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../model/providers/provider.js";
 
 export async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
     const items: T[] = [];
@@ -21,9 +21,9 @@ export class ScriptedStreamProvider implements Provider {
         throw new Error("A streaming test must not call invoke");
     }
 
-    async *stream(messages: BaseMessages, tools: ToolSpec[]): AsyncGenerator<ProviderStreamEvent> {
+    async *stream(request: ProviderRequest): AsyncGenerator<ProviderStreamEvent> {
         const turn = this.turns[this.requests.length];
-        this.requests.push({ messages: structuredClone(messages), tools: structuredClone(tools) });
+        this.requests.push({ messages: structuredClone(request.messages), tools: structuredClone(request.toolSpecs ?? []) });
         if (!turn) throw new Error("Unexpected extra stream request");
         try {
             yield* turn();

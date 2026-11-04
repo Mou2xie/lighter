@@ -45,7 +45,7 @@ function deferred() {
 
 test("a plain reply completes the run and uses the default system prompt once", async () => {
     const provider = new RecordingProvider(new MockProvider([new AssistantMessage("Hello")]));
-    const messages = assertCompletedRun(await new Agent({ model: new Model(provider) }).run([new UserMessage("Hi")]));
+    const messages = assertCompletedRun(await new Agent({ model: new Model(provider) }).run({ messages: [new UserMessage("Hi")] }));
 
     assert.equal(provider.requests.length, 1);
     assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
@@ -61,7 +61,7 @@ test("an explicit system prompt replaces the default prompt", async () => {
     const messages = assertCompletedRun(await new Agent({
         model: new Model(provider),
         systemPrompt: prompt,
-    }).run([new UserMessage("1 + 2?")]));
+    }).run({ messages: [new UserMessage("1 + 2?")] }));
 
     assert.deepEqual(provider.requests[0]!.messages.filter(message => message.role === "system").map(message => message.content), [prompt.content]);
     assert.deepEqual(messages.map(message => message.role), ["assistant"]);
@@ -75,7 +75,7 @@ test("executes a tool once and supplies its paired result and tool definition to
         new AssistantMessage("18"),
     ]));
     const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
-        .run([new UserMessage("11 + 7?")]));
+        .run({ messages: [new UserMessage("11 + 7?")] }));
 
     assert.equal(executions, 1);
     assert.equal(provider.requests.length, 2);
@@ -130,7 +130,7 @@ test("awaits an asynchronous tool before starting the next call in the same turn
         ],
     });
 
-    const run = agent.run([new UserMessage("Run both")]);
+    const run = agent.run({ messages: [new UserMessage("Run both")] });
     await started.promise;
     try {
         assert.deepEqual(order, ["first:start"]);
@@ -159,7 +159,7 @@ for (const [label, argumentsText] of [
             new AssistantMessage("18"),
         ]));
         const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] })
-            .run([new UserMessage("11 + 7?")]));
+            .run({ messages: [new UserMessage("11 + 7?")] }));
 
         const failure = provider.requests[1]!.messages.at(-1);
         assert.ok(failure?.role === "tool");
@@ -195,7 +195,7 @@ test("unknown tools and tool exceptions do not leave unpaired calls or skip late
 
     let executions = 0;
     const messages = assertCompletedRun(await new Agent({ model: new Model(provider), tools: [broken, makeAddition(() => executions++)] })
-        .run([new UserMessage("Try the tools")]));
+        .run({ messages: [new UserMessage("Try the tools")] }));
 
     const results = provider.requests[1]!.messages.filter(message => message.role === "tool");
     assert.deepEqual(results.map(message => [message.callId, message.toolName, message.isError]), [
@@ -223,7 +223,7 @@ for (const [label, failure] of [
         const inputMessages = [new UserMessage("Hi")];
         const before = JSON.stringify(inputMessages);
 
-        const result = assertFailedRun(await agent.run(inputMessages));
+        const result = assertFailedRun(await agent.run({ messages: inputMessages }));
 
         assert.equal(provider.requests.length, 1);
         assert.deepEqual(provider.requests[0]!.messages.map(message => message.role), ["system", "user"]);
@@ -251,7 +251,7 @@ test("a later model failure returns completed tools and supports continuation wi
     });
     const agent = new Agent({ model: new Model(provider), tools: [makeAddition(() => executions++)] });
     const history: BaseMessages = [new UserMessage("Add")];
-    const result = assertFailedRun(await agent.run(history));
+    const result = assertFailedRun(await agent.run({ messages: history }));
 
     assert.equal(modelCalls, 2);
     assert.equal(executions, 1);
@@ -271,7 +271,7 @@ test("a later model failure returns completed tools and supports continuation wi
     // The caller commits progress and retries the model with the retained
     // context, without adding the user input or executing the tool again.
     history.push(...result.messages);
-    const addedMessages = assertCompletedRun(await agent.run(history));
+    const addedMessages = assertCompletedRun(await agent.run({ messages: history }));
     assert.equal(finalText(addedMessages), "3");
     assert.equal(executions, 1);
     assert.equal(modelCalls, 3);
@@ -283,9 +283,9 @@ test("caller-managed history supplies the preceding turn without duplicating inp
     const agent = new Agent({ model: new Model(provider) });
     const history: BaseMessages = [new UserMessage("First input")];
 
-    history.push(...assertCompletedRun(await agent.run(history)));
+    history.push(...assertCompletedRun(await agent.run({ messages: history })));
     history.push(new UserMessage("Second input"));
-    const addedMessages = assertCompletedRun(await agent.run(history));
+    const addedMessages = assertCompletedRun(await agent.run({ messages: history }));
     history.push(...addedMessages);
 
     assert.deepEqual(provider.requests[1]!.messages.map(message => message.role), ["system", "user", "assistant", "user"]);
@@ -308,7 +308,7 @@ test("a tool round trip leaves caller history unchanged and excludes that histor
     const before = JSON.stringify(inputMessages);
     const originalMessages = [...inputMessages];
 
-    const addedMessages = assertCompletedRun(await agent.run(inputMessages));
+    const addedMessages = assertCompletedRun(await agent.run({ messages: inputMessages }));
 
     assert.equal(JSON.stringify(inputMessages), before);
     assert.deepEqual(inputMessages, originalMessages);
@@ -322,10 +322,10 @@ test("reusing an agent does not change a previously returned increment", async (
     const agent = new Agent({ model: new Model(new MockProvider([
         new AssistantMessage("First"), new AssistantMessage("Second"),
     ])) });
-    const first = assertCompletedRun(await agent.run([new UserMessage("One")]));
+    const first = assertCompletedRun(await agent.run({ messages: [new UserMessage("One")] }));
     const before = JSON.stringify(first);
 
-    const second = assertCompletedRun(await agent.run([new UserMessage("Two")]));
+    const second = assertCompletedRun(await agent.run({ messages: [new UserMessage("Two")] }));
 
     assert.equal(JSON.stringify(first), before);
     assert.deepEqual(first.map(message => message.role), ["assistant"]);
@@ -342,10 +342,10 @@ test("independent histories can reuse one agent without leaking context between 
     const historyA: BaseMessages = [new UserMessage("Input A")];
     const historyB: BaseMessages = [new UserMessage("Input B")];
 
-    historyA.push(...assertCompletedRun(await agent.run(historyA)));
-    historyB.push(...assertCompletedRun(await agent.run(historyB)));
+    historyA.push(...assertCompletedRun(await agent.run({ messages: historyA })));
+    historyB.push(...assertCompletedRun(await agent.run({ messages: historyB })));
     historyA.push(new UserMessage("Follow-up"));
-    historyA.push(...assertCompletedRun(await agent.run(historyA)));
+    historyA.push(...assertCompletedRun(await agent.run({ messages: historyA })));
 
     assert.deepEqual(textContents(provider.requests[1]!.messages), ["You are a helpful assistant.", "Input B"]);
     assert.deepEqual(textContents(provider.requests[2]!.messages), ["You are a helpful assistant.", "Input A", "Reply A", "Follow-up"]);
@@ -357,7 +357,7 @@ test("concurrent runs with different input histories keep their local contexts i
     const provider = new RecordingProvider({
         name: "concurrent",
         async *stream() { throw new Error("Use invoke in this test"); },
-        async invoke(messages) {
+        async invoke({ messages }) {
             assert.ok(++requests <= 2, "No unexpected follow-up request");
             const input = messages.at(-1);
             assert.ok(input?.role === "user");
@@ -369,7 +369,7 @@ test("concurrent runs with different input histories keep their local contexts i
     const historyA = [new UserMessage("A")];
     const historyB = [new UserMessage("B")];
 
-    const [resultA, resultB] = await Promise.all([agent.run(historyA), agent.run(historyB)]);
+    const [resultA, resultB] = await Promise.all([agent.run({ messages: historyA }), agent.run({ messages: historyB })]);
     const addedA = assertCompletedRun(resultA);
     const addedB = assertCompletedRun(resultB);
 

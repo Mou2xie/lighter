@@ -27,7 +27,7 @@ test("stream is lazy and yields deltas before the completed result without dupli
     )]);
     const history = input();
     const before = structuredClone(history);
-    const stream = new Agent({ model: new Model(provider), systemPrompt: new SystemMessage("Be brief") }).stream(history);
+    const stream = new Agent({ model: new Model(provider), systemPrompt: new SystemMessage("Be brief") }).stream({ messages: history });
     assert.equal(provider.requests.length, 0);
     assert.deepEqual(await stream.next(), { done: false, value: { type: "reasoning_delta", text: "想好了" } });
     assert.equal(provider.requests.length, 1);
@@ -57,7 +57,7 @@ test("stream executes mixed tool calls in order, returns paired errors, and supp
     const final = new AssistantMessage("Done");
     const provider = new ScriptedStreamProvider([events(message(toolReply)), events({ type: "text_delta", text: "Done" }, message(final))]);
     const history = input();
-    const items = await collect(new Agent({ model: new Model(provider), tools }).stream(history));
+    const items = await collect(new Agent({ model: new Model(provider), tools }).stream({ messages: history }));
     const generated = assertCompletedRun(result(items));
     assert.deepEqual(order, ["first", "broken", "last"]);
     assert.deepEqual(generated.map(m => m.role), ["assistant", ...calls.map(() => "tool"), "assistant"]);
@@ -82,7 +82,7 @@ for (const failure of [new Error("Stream failed"), "failure", null, undefined]) 
             yield { type: "text_delta", text: "partial" };
             throw failure;
         }]);
-        const items = await collect(new Agent({ model: new Model(provider) }).stream(input()));
+        const items = await collect(new Agent({ model: new Model(provider) }).stream({ messages: input() }));
         const failed = assertFailedRun(result(items));
         assert.equal(failed.error, failure);
         assert.deepEqual(failed.messages, [], "Unfinished text is not a committed assistant message");
@@ -102,10 +102,10 @@ test("stream failure retains completed tool progress and permits caller-managed 
     ]);
     const agent = new Agent({ model: new Model(provider), tools: [tool] });
     const history = input();
-    const failed = assertFailedRun(result(await collect(agent.stream(history))));
+    const failed = assertFailedRun(result(await collect(agent.stream({ messages: history }))));
     assert.equal(failed.error, failure);
     assert.deepEqual(failed.messages.map(m => m.role), ["assistant", "tool"]);
-    const resumed = assertCompletedRun(result(await collect(agent.stream([...history, ...failed.messages]))));
+    const resumed = assertCompletedRun(result(await collect(agent.stream({ messages: [...history, ...failed.messages] }))));
     assert.equal(executions, 1);
     assert.equal(resumed.length, 1);
     assert.deepEqual(provider.requests[2]!.messages.map(m => m.role), ["system", "user", "assistant", "tool"]);
@@ -117,7 +117,7 @@ test("stopping at a delta closes the provider and prevents later tools or follow
     const provider = new ScriptedStreamProvider([events({ type: "text_delta", text: "Wait" }, message(new AssistantMessage("", {
         toolCalls: [{ callId: "never", toolName: "count", arguments: "{}" }],
     })))]);
-    const stream = new Agent({ model: new Model(provider), tools: [tool] }).stream(input());
+    const stream = new Agent({ model: new Model(provider), tools: [tool] }).stream({ messages: input() });
     for await (const item of stream) { assert.deepEqual(item, { type: "text_delta", text: "Wait" }); break; }
     assert.equal(provider.closed, 1);
     assert.equal(provider.requests.length, 1);
@@ -130,7 +130,7 @@ for (const partial of [false, true]) {
         // The finite script bounds the current bug: a retry throws immediately,
         // instead of making this regression spin forever or hit a real API.
         const provider = new ScriptedStreamProvider([events(...(partial ? [{ type: "text_delta" as const, text: "partial" }] : []))]);
-        const items = await collect(new Agent({ model: new Model(provider) }).stream(input()));
+        const items = await collect(new Agent({ model: new Model(provider) }).stream({ messages: input() }));
         assertFailedRun(result(items));
         assert.equal(provider.requests.length, 1, "An unfinished stream must fail, not silently retry the same context");
     });
@@ -154,7 +154,7 @@ test("stream awaits the first tool before starting the second or requesting the 
         } }),
         new Tool({ name: "second", description: "Second", parametersZodSchema: z.object({}), func: () => { order.push("second"); return 2; } }),
     ] });
-    const pending = collect(agent.stream(input()));
+    const pending = collect(agent.stream({ messages: input() }));
     await hasStarted;
     try {
         assert.deepEqual(order, ["first:start"]);
