@@ -22,20 +22,24 @@ export class OpenAIProvider implements Provider {
         this.options = { ...options };
     }
 
-    private toRequest(providerRequest: ProviderRequest): ResponseCreateParamsNonStreaming {
-        return {
+    private toOpenAIRequest(providerRequest: ProviderRequest): ResponseCreateParamsNonStreaming {
+
+        const responseCreateParamsNonStreaming: ResponseCreateParamsNonStreaming = {
             model: this.modelID,
             input: openaiMessageAdapter.toInput(providerRequest.messages),
             tools: providerRequest.toolSpecs ?? [],
             store: false,
-            ...(this.options.reasoning !== undefined ? { reasoning: this.options.reasoning } : {}),
-            ...(this.options.maxOutputTokens !== undefined ? { max_output_tokens: this.options.maxOutputTokens } : {}),
         };
+
+        this.options.reasoning && (responseCreateParamsNonStreaming.reasoning = this.options.reasoning);
+        this.options.maxOutputTokens && (responseCreateParamsNonStreaming.max_output_tokens = this.options.maxOutputTokens);
+
+        return responseCreateParamsNonStreaming;
     }
 
     async invoke(providerRequest: ProviderRequest): Promise<AssistantMessage> {
         try {
-            const response = await this.client.responses.create(this.toRequest(providerRequest));
+            const response = await this.client.responses.create(this.toOpenAIRequest(providerRequest));
             openaiErrorAdapter.checkResponseStatus(response);
             return openaiMessageAdapter.fromResponse(response);
         } catch (error) {
@@ -49,7 +53,7 @@ export class OpenAIProvider implements Provider {
     async *stream(providerRequest: ProviderRequest): AsyncGenerator<ProviderStreamEvent> {
         try {
             const responseStream = await this.client.responses.create({
-                ...this.toRequest(providerRequest),
+                ...this.toOpenAIRequest(providerRequest),
                 stream: true,
             });
 
