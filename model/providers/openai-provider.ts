@@ -101,8 +101,16 @@ export class OpenAIProvider implements Provider {
 
 }
 
-// Keep native reasoning items, IDs, and assistant phases without changing the
-// shared AssistantMessage class. No conversation state is held by the provider.
+/**
+ * Preserves OpenAI's replayable output alongside the shared AssistantMessage fields.
+ *
+ * The shared fields serve Agent logic and hooks, while openaiOutput retains native
+ * reasoning context, item IDs, assistant phases, and item order for later requests.
+ *
+ * Native output is replayed only while this instance's content and tool calls
+ * remain unchanged. Modified, replaced, or deserialized messages fall back to
+ * ordinary message adaptation, which does not preserve native reasoning context.
+ */
 class OpenAIAssistantMessage extends AssistantMessage {
     readonly openaiOutput: ResponseInput;
     private readonly originalContent: string;
