@@ -263,3 +263,6 @@ const openaiMessageAdapter = {
         return new OpenAIAssistantMessage(content, { reasoning, toolCalls }, response);
     },
 };
+
+
+

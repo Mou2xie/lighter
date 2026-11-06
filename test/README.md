@@ -63,6 +63,8 @@ they prevent the provider call and preserve previously completed tool progress.
 | `agent.test.ts` | Prompts, tool round trips and ordering, error correction, mixed valid/invalid calls, model failures and partial progress, caller-managed continuation, unchanged inputs, and independent/concurrent run contexts |
 | `deepseek-provider.test.ts` | SDK request serialization over mocked HTTP, tool schemas, history/reasoning adaptation, call IDs, response extraction, authentication errors, and an agent tool/error-correction round trip |
 | `deepseek-errors.test.ts` | HTTP/SDK error classification, response statuses, missing error details, and preserving completed tool progress after an incomplete response |
+| `openai-provider.test.ts` | SDK request serialization over mocked HTTP, `store: false`, `reasoning`/`maxOutputTokens` forwarding, output extraction including refusals, native item replay versus rebuilt fallback, response statuses, HTTP error classification, SSE reasoning/text deltas, and an agent tool round trip |
+| `claude-provider.test.ts` | Required `max_tokens`, constructor budget validation, system-prompt hoisting, alternating block adaptation with tool results, native thinking-block replay and its loss after replacement, `stop_reason` mapping, HTTP error classification, SSE thinking/text deltas, and an agent tool round trip |
 | `tool.test.ts` | Sync/async execution, validation/defaults, exceptions, text output, and JSON Schema export |
 | `mock-provider.test.ts` | Model invocation and streaming, shared mock exhaustion, event identity, and iterator cleanup |
 | `offline.test.ts` | Rejection of unmocked fetch calls |
@@ -114,7 +116,7 @@ also transformed.
 
 ## Agent lifecycle hook regressions
 
-The full suite currently has **138 tests: all pass**. Type checking passes.
+The full suite currently has **183 tests: all pass**. Type checking passes.
 `agent-hooks.test.ts` covers 12 cases around `beforeAgent` and `afterAgent`.
 Both modes invoke `beforeAgent` once and deliver only one result after
 `afterAgent`. Lifecycle callback errors become failed results, retaining the
@@ -132,6 +134,41 @@ paths as a stable public contract.
 
 Successful string tool outputs are JSON-serialized by the current implementation,
 so tests expect `JSON.stringify("hello")`, including JSON quotes.
+
+## OpenAI and Claude providers
+
+The provider suites pass. Type checking passes.
+`openai-provider.test.ts` (21 cases) and `claude-provider.test.ts` (24 cases) drive
+the real OpenAI and Anthropic SDKs over mocked HTTP, so request serialization, SSE
+decoding, and error classification are exercised end to end rather than mocked at
+the provider boundary.
+
+Both providers reduce the shared `AssistantMessage` to a lossy projection of their
+native turn, so each returns a private subclass holding the original items and
+replays them verbatim while the message is still unchanged. The tests pin that
+distinction: an untouched message is replayed with its native ids, reasoning
+summaries, and thinking signatures intact, while a replaced, cloned, or in-place
+mutated message falls back to rebuilding items from the public fields. The fallback
+is covered for OpenAI `function_call` reconstruction and for the loss of Claude
+`thinking` blocks, which cannot be re-signed from a displayed summary.
+
+Current behavior that the suites record rather than endorse:
+
+- Claude `stop_reason` values `pause_turn` and `model_context_window_exceeded` are
+  rejected as `bad_response` instead of being continued or reported separately.
+- Claude requests always send `strict: false` and pass the Zod-generated `$schema`
+  through inside `input_schema`. Both are asserted as-is.
+- Enabling Claude `thinking` and then replacing the assistant message drops the
+  signed thinking block, so a subsequent tool-result turn may be rejected by the
+  API. This is a failure, not a degradation.
+- OpenAI reasoning deltas, and `AssistantMessage.reasoning` itself, depend on the
+  `reasoning.summary` option. Without it the stream carries no reasoning events.
+- `OpenAIProvider` exposes the retained native items on the message object, while
+  `ClaudeProvider` keeps them private behind `replayContent()`. The Claude shape is
+  the stricter of the two.
+- Neither provider test suite is a live compatibility check: no test contacts a
+  real endpoint, and none establishes that the current wire shape is accepted by
+  the real Claude or OpenAI API.
 
 ## Isolation and limits
 
