@@ -7,7 +7,7 @@ import { AssistantMessage, SystemMessage, UserMessage } from "../core/messages.j
 import { Tool } from "../core/tool.js";
 import type { BaseMessages, ToolCall } from "../core/messages.js";
 import { Model } from "../model/model.js";
-import { MockProvider } from "../providers/mock-provider.js";
+import { MockProvider } from "./helpers/mock-provider.js";
 import { RecordingProvider } from "./helpers/recording-provider.js";
 import { assertCompletedRun, assertFailedRun } from "./helpers/run-result.js";
 

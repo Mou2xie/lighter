@@ -8,7 +8,7 @@ import { AssistantMessage, UserMessage } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import type { Provider } from "../providers/provider.js";
-import { MockProvider } from "../providers/mock-provider.js";
+import { MockProvider } from "./helpers/mock-provider.js";
 import { RecordingProvider } from "./helpers/recording-provider.js";
 import { assertCompletedRun } from "./helpers/run-result.js";
 import { collect } from "./helpers/stream.js";

@@ -8,4 +8,3 @@ export * from "./providers/provider.js";
 export * from "./providers/deepseek-provider.js";
 export * from "./providers/openai-provider.js";
 export * from "./providers/claude-provider.js";
-export * from "./providers/mock-provider.js";

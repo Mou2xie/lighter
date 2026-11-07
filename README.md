@@ -14,36 +14,10 @@ This package uses ESM (`import` / `export`). Use `.mjs` files or set
 are included. Development checks currently run on Node.js 22.23.3; other Node.js
 versions have not been verified.
 
-## Quick start without an API key
+## Quick start
 
-```js
-import {
-  Agent,
-  Model,
-  MockProvider,
-  AssistantMessage,
-  UserMessage,
-} from "@yong_xie/lighter";
-
-const agent = new Agent({
-  model: new Model(new MockProvider([
-    new AssistantMessage("Hello from lighter!"),
-  ])),
-});
-
-const result = await agent.run({ messages: [new UserMessage("Hello")] });
-if (result.status === "failed") throw result.error;
-console.log(result.messages);
-```
-
-`run` returns a `status`, the messages generated during this run, and an optional
-`error`. The caller retains conversation history and can append these generated
-messages before the next run.
-
-## Model providers
-
-The package exports `DeepSeekProvider`, `OpenAIProvider`, `ClaudeProvider`, and
-`MockProvider`. Pass your API key and the model ID supported by your provider:
+The package exports `DeepSeekProvider`, `OpenAIProvider`, and `ClaudeProvider`.
+Pass your API key and the model ID supported by your provider:
 
 ```js
 import { Agent, Model, OpenAIProvider, UserMessage } from "@yong_xie/lighter";
@@ -57,6 +31,10 @@ const result = await agent.run({ messages: [new UserMessage("Hello")] });
 if (result.status === "failed") throw result.error;
 console.log(result.messages);
 ```
+
+`run` returns a `status`, the messages generated during this run, and an optional
+`error`. The caller retains conversation history and can append these generated
+messages before the next run.
 
 Importing the package does not read API keys or make model requests. Applications
 supply credentials when constructing a real provider. Real provider calls require
@@ -107,7 +85,7 @@ model settings.
 - `Agent`, `Model`, `Tool` and their exported configuration/request/result types.
 - `SystemMessage`, `UserMessage`, `AssistantMessage`, `ToolMessage` and message types.
 - `BeforeAgentHook`, `AfterAgentHook`, `BeforeModelHook`, `AfterModelHook`.
-- The four providers above, provider contracts, and `ModelError`.
+- The three providers above, provider contracts, and `ModelError`.
 
 The initial 0.x API may change. Automated tests use mocked provider responses;
 they do not establish live model API compatibility.
