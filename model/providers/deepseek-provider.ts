@@ -6,15 +6,15 @@ import { ModelError, type ModelErrorCode } from "../errors.js";
 
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.
-type DEEPSEEK_MODEIL_ID = "deepseek-flash" | "deepseek-v4-pro";
+type DEEPSEEK_MODEL_ID = "deepseek-flash" | "deepseek-v4-pro";
 const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
 
 export class DeepSeekProvider implements Provider {
     readonly name = "deepseek" as const;
     private readonly client: Openai;
-    private modelID: DEEPSEEK_MODEIL_ID;
+    private modelID: DEEPSEEK_MODEL_ID;
 
-    constructor(apiKey: string, modelID: DEEPSEEK_MODEIL_ID) {
+    constructor(apiKey: string, modelID: DEEPSEEK_MODEL_ID) {
         this.client = new Openai({
             baseURL: DEEPSEEK_BASE_URL,
             apiKey,

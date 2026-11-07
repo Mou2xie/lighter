@@ -50,6 +50,7 @@ export class Tool<ZSchema extends z.ZodObject = z.ZodObject> {
         }
     }
 
+    // This object returned here is used to tell the LLM what the tool is and how to call it.
     getSpec(): ToolSpec {
         return {
             type: "function",

@@ -5,6 +5,9 @@ import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems";
 import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
 import { ModelError, type ModelErrorCode } from "../errors.js";
 
+
+type OPENAI_MODEL_ID = NonNullable<ResponseCreateParamsNonStreaming["model"]>;
+
 export interface OpenAIProviderOptions {
     reasoning?: ResponseCreateParamsNonStreaming["reasoning"];
     maxOutputTokens?: number;
@@ -13,15 +16,16 @@ export interface OpenAIProviderOptions {
 export class OpenAIProvider implements Provider {
     readonly name = "openai" as const;
     private readonly client: OpenAI;
-    private readonly modelID: string;
+    private readonly modelID: OPENAI_MODEL_ID;
     private readonly options: OpenAIProviderOptions;
 
-    constructor(apiKey: string, modelID: string, options: OpenAIProviderOptions = {}) {
+    constructor(apiKey: string, modelID: OPENAI_MODEL_ID, options: OpenAIProviderOptions = {}) {
         this.client = new OpenAI({ apiKey });
         this.modelID = modelID;
         this.options = { ...options };
     }
 
+    // Converts a ProviderRequest into OpenAI's ResponseCreateParamsNonStreaming format.
     private toOpenAIRequest(providerRequest: ProviderRequest): ResponseCreateParamsNonStreaming {
 
         const responseCreateParamsNonStreaming: ResponseCreateParamsNonStreaming = {
