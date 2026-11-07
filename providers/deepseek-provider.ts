@@ -29,17 +29,17 @@ export class DeepSeekProvider implements Provider {
         try {
             const response = await this.client.responses.create({
                 model: this.modelID,
-                input: deepseekMessageAdapter.toInput(messages),
+                input: this.toInput(messages),
                 tools: toolSpecs,
             });
             // Check response status, throw ModelError for non-completed statuses.
-            deepseekErrorAdapter.checkResponseStatus(response);
+            this.checkResponseStatus(response);
 
-            return deepseekMessageAdapter.fromResponse(response);
+            return this.fromResponse(response);
 
         } catch (error) {
             if (error instanceof Openai.OpenAIError) {
-                throw deepseekErrorAdapter.toModelError(error);
+                throw this.toModelError(error);
             }
             throw error;
         }
@@ -52,7 +52,7 @@ export class DeepSeekProvider implements Provider {
         try {
             const responseStream = await this.client.responses.create({
                 model: this.modelID,
-                input: deepseekMessageAdapter.toInput(messages),
+                input: this.toInput(messages),
                 tools: toolSpecs,
                 stream: true,
             });
@@ -80,13 +80,13 @@ export class DeepSeekProvider implements Provider {
                         isResponseCompleted = true;
                         yield {
                             type: "message",
-                            message: deepseekMessageAdapter.fromResponse(chunk.response),
+                            message: this.fromResponse(chunk.response),
                         }
                         break;
                     }
                     case "response.failed":
                     case "response.incomplete": {
-                        deepseekErrorAdapter.checkResponseStatus(chunk.response);
+                        this.checkResponseStatus(chunk.response);
                         break;
                     }
                 }
@@ -99,19 +99,14 @@ export class DeepSeekProvider implements Provider {
 
         } catch (error) {
             if (error instanceof Openai.OpenAIError) {
-                throw deepseekErrorAdapter.toModelError(error);
+                throw this.toModelError(error);
             }
             throw error;
         }
     }
-}
-
-
-// Adapter for error checking and converting DeepSeek errors to ModelError.
-const deepseekErrorAdapter = {
 
     // Check the response status and throw ModelError for non-completed statuses.
-    checkResponseStatus: (response: Response): void => {
+    private checkResponseStatus(response: Response): void {
         switch (response.status) {
             case "completed":
                 return;
@@ -140,11 +135,10 @@ const deepseekErrorAdapter = {
                     responseStatus: response.status,
                 });
         }
-
-    },
+    }
 
     // Convert OpenAIError to ModelError with appropriate ModelErrorCode.
-    toModelError(error: OpenAIError): ModelError {
+    private toModelError(error: OpenAIError): ModelError {
         let code: ModelErrorCode = "unknown";
 
         if (error instanceof Openai.APIUserAbortError) {
@@ -167,17 +161,13 @@ const deepseekErrorAdapter = {
             httpStatus: error instanceof Openai.APIError ? error.status : undefined,
         });
     }
-}
-
-// Adapter for converting between BaseMessages and DeepSeek messages.
-const deepseekMessageAdapter = {
 
     // Convert BaseMessages to DeepSeek ResponseInput.
-    toInput(messages: BaseMessages): ResponseInput {
-
+    private toInput(messages: BaseMessages): ResponseInput {
         const input: ResponseInput = [];
 
         for (const message of messages) {
+
             switch (message.role) {
                 case "system":
                 case "user":
@@ -185,6 +175,14 @@ const deepseekMessageAdapter = {
                     break;
 
                 case "assistant": {
+
+                    // Deal with content.
+                    input.push({
+                        type: "message",
+                        role: message.role,
+                        content: message.content,
+                    });
+
                     // Deal with reasoning, reasoning should be a separate item in the input array.
                     if (message.reasoning !== undefined) {
                         input.push({
@@ -194,13 +192,6 @@ const deepseekMessageAdapter = {
                             content: [{ type: "reasoning_text", text: message.reasoning }],
                         });
                     }
-
-                    // Deal with content.
-                    input.push({
-                        type: "message",
-                        role: message.role,
-                        content: message.content,
-                    });
 
                     // Deal with tool calls, tool calls should be separate items in the input array as well.
                     if (message.toolCalls.length > 0) {
@@ -228,10 +219,10 @@ const deepseekMessageAdapter = {
             }
         }
         return input;
-    },
+    }
 
     // Convert DeepSeek Response to AssistantMessage.
-    fromResponse(response: Response): AssistantMessage {
+    private fromResponse(response: Response): AssistantMessage {
         let reasoning: string | undefined = undefined;
         let content: string = "";
         const toolCalls: ToolCall[] = [];
@@ -242,7 +233,6 @@ const deepseekMessageAdapter = {
                     for (const reasoningItem of item.content ?? []) {
                         if (reasoningItem.type === "reasoning_text") {
                             reasoning = (reasoning ?? "") + reasoningItem.text;
-
                         }
                     }
                     break;
@@ -269,24 +259,13 @@ const deepseekMessageAdapter = {
         }
 
         return new AssistantMessage(content, { reasoning, toolCalls });
-    },
-};
+    }
+}
+
 
 // Deepseek model input example:
 /*
  * Documentation: https://api-docs.deepseek.com/api/create-response/
- * Illustrative input array based on the documentation, with fictional content and IDs.
- * This is the return value of toInput(messages), used in responses.create({ model, input, tools }).
- * Define available tools in the top-level tools parameter, outside input.
- * DeepSeek Responses API is stateless; send the full conversation history with each request.
- *
- * Scenario: Toronto weather has been checked, and the user now asks about London.
- * reasoning, assistant text, and function_call come from the same internal AssistantMessage.
- * function_call_output comes from a ToolMessage created after executing the tool.
- * id identifies an item; call_id pairs a tool call with its result.
- * Keep arguments as a JSON string; output contains the tool result as a string.
- * summary: [] and reasoning.id satisfy SDK types; DeepSeek reads the text in content.
- *
  * input:
  * [
  *     { "type": "message", "role": "system", "content": "Please respond in English." },
@@ -323,10 +302,6 @@ const deepseekMessageAdapter = {
 // Deepseek response example:
 /*
  * Documentation: https://api-docs.deepseek.com/api/create-response/
- * Illustrative non-streaming response to "What about London?", omitting usage and other fields.
- * This is a response excerpt, not a complete SDK Response fixture or a real API record.
- * The text is split into two parts to demonstrate iteration; the service need not split it this way.
- *
  * response:
  * {
  *     "id": "resp_002",
@@ -377,8 +352,4 @@ const deepseekMessageAdapter = {
  * });
  *
  * A normal reply may omit reasoning or function_call; a tool call may have no assistant text.
- * Join content parts in order, and collect every function_call item.
- * Create ToolMessage after executing a tool, rather than from this response.
- * completed means generation finished; toolCalls still require execution and another request.
- * Do not treat failed or incomplete as a complete reply; truncation may report max_output_tokens.
  */
