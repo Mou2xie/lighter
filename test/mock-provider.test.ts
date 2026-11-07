@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AssistantMessage, UserMessage } from "../core/messages.js";
 import { Model } from "../model/model.js";
-import { MockProvider } from "../model/providers/mock-provider.js";
+import { MockProvider } from "../providers/mock-provider.js";
 
 test("MockProvider works through Model and yields a finite sequence of replies in order", async () => {
     const model = new Model(new MockProvider([new AssistantMessage("first"), new AssistantMessage("second")]));

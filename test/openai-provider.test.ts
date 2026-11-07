@@ -12,7 +12,7 @@ import { AssistantMessage, SystemMessage, ToolMessage, UserMessage } from "../co
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { ModelError } from "../model/errors.js";
-import { OpenAIProvider, type OpenAIProviderOptions } from "../model/providers/openai-provider.js";
+import { OpenAIProvider, type OpenAIProviderOptions } from "../providers/openai-provider.js";
 import { call, response, text } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
 import { assertCompletedRun } from "./helpers/run-result.js";

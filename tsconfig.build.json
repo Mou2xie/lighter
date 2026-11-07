@@ -10,7 +10,8 @@
     "index.ts",
     "agent/**/*.ts",
     "core/**/*.ts",
-    "model/**/*.ts"
+    "model/**/*.ts",
+    "providers/**/*.ts"
   ],
   "exclude": [
     "node_modules",

@@ -1,6 +1,6 @@
 import type { BaseMessages } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
-import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../model/providers/provider.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../providers/provider.js";
 
 export async function collect<T>(source: AsyncIterable<T>): Promise<T[]> {
     const items: T[] = [];

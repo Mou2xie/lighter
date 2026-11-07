@@ -1,7 +1,7 @@
 import { Model } from "../model/model.js";
 import { SystemMessage, AssistantMessage, BaseMessages, ToolMessage } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
-import { ProviderStreamEvent } from "../model/providers/provider.js";
+import { ProviderStreamEvent } from "../providers/provider.js";
 import { ModelError } from "../model/errors.js";
 import { BeforeModelHook, AfterModelHook, BeforeAgentHook, AfterAgentHook } from "../core/hooks.js";
 

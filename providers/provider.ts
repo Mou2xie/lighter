@@ -1,5 +1,5 @@
-import type { BaseMessages, AssistantMessage } from "../../core/messages.js";
-import type { ToolSpec } from "../../core/tool.js";
+import type { BaseMessages, AssistantMessage } from "../core/messages.js";
+import type { ToolSpec } from "../core/tool.js";
 
 export interface ProviderRequest {
     messages: BaseMessages;

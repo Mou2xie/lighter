@@ -1,7 +1,7 @@
 import type { Provider, ProviderStreamEvent } from "./provider.js";
-import type { BaseMessages, AssistantMessage } from "../../core/messages.js";
-import type { ToolSpec } from "../../core/tool.js";
-import { AgentRequest } from "../../agent/agent.js";
+import type { BaseMessages, AssistantMessage } from "../core/messages.js";
+import type { ToolSpec } from "../core/tool.js";
+import { AgentRequest } from "../agent/agent.js";
 
 // Used for testing and development purposes.
 export class MockProvider implements Provider {

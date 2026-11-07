@@ -1,4 +1,4 @@
-import type { Provider, ProviderRequest, ProviderStreamEvent } from "./providers/provider.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "../providers/provider.js";
 import type { AssistantMessage } from "../core/messages.js";
 import type { AfterModelHook, BeforeModelHook } from "../core/hooks.js";
 

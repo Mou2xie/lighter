@@ -7,7 +7,7 @@ import { AssistantMessage, SystemMessage, ToolMessage, UserMessage } from "../co
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { ModelError } from "../model/errors.js";
-import { DeepSeekProvider } from "../model/providers/deepseek-provider.js";
+import { DeepSeekProvider } from "../providers/deepseek-provider.js";
 import { call, reasoning, response, text } from "./fixtures/deepseek.js";
 import { mockHttp } from "./helpers/http.js";
 import { assertCompletedRun } from "./helpers/run-result.js";

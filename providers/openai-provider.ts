@@ -2,8 +2,8 @@ import type { Provider, ProviderStreamEvent, ProviderRequest } from "./provider.
 import OpenAI, { type OpenAIError } from "openai";
 import type { Response, ResponseInput, ResponseCreateParamsNonStreaming } from "openai/resources/responses/responses.js";
 import { toResponseInputItems } from "openai/lib/responses/ResponseInputItems";
-import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
-import { ModelError, type ModelErrorCode } from "../errors.js";
+import { type BaseMessages, type ToolCall, AssistantMessage } from "../core/messages.js";
+import { ModelError, type ModelErrorCode } from "../model/errors.js";
 
 
 type OPENAI_MODEL_ID = NonNullable<ResponseCreateParamsNonStreaming["model"]>;

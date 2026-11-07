@@ -1,8 +1,8 @@
 import type { Provider, ProviderStreamEvent, ProviderRequest } from "./provider.js";
 import Openai, { type OpenAIError } from "openai";
 import type { Response, ResponseInput } from "openai/resources/responses/responses.js";
-import { type BaseMessages, type ToolCall, AssistantMessage } from "../../core/messages.js";
-import { ModelError, type ModelErrorCode } from "../errors.js";
+import { type BaseMessages, type ToolCall, AssistantMessage } from "../core/messages.js";
+import { ModelError, type ModelErrorCode } from "../model/errors.js";
 
 
 // DeepSeek's two available models: deepseek-flash and deepseek-v4-pro.

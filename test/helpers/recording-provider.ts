@@ -1,6 +1,6 @@
 import type { AssistantMessage, BaseMessages } from "../../core/messages.js";
 import type { ToolSpec } from "../../core/tool.js";
-import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../model/providers/provider.js";
+import type { Provider, ProviderRequest, ProviderStreamEvent } from "../../providers/provider.js";
 
 export class RecordingProvider implements Provider {
     readonly name: string;

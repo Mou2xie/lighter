@@ -16,7 +16,7 @@ import { AssistantMessage, SystemMessage, ToolMessage, UserMessage } from "../co
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
 import { ModelError } from "../model/errors.js";
-import { ClaudeProvider, type ClaudeProviderOptions } from "../model/providers/claude-provider.js";
+import { ClaudeProvider, type ClaudeProviderOptions } from "../providers/claude-provider.js";
 import { mockHttp } from "./helpers/http.js";
 import { assertCompletedRun } from "./helpers/run-result.js";
 import { collect, sse } from "./helpers/stream.js";

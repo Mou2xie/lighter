@@ -7,7 +7,7 @@ import { BeforeAgentHook, AfterAgentHook } from "../core/hooks.js";
 import { AssistantMessage, UserMessage, type BaseMessages } from "../core/messages.js";
 import { Tool } from "../core/tool.js";
 import { Model } from "../model/model.js";
-import { MockProvider } from "../model/providers/mock-provider.js";
+import { MockProvider } from "../providers/mock-provider.js";
 import { RecordingProvider } from "./helpers/recording-provider.js";
 import { assertCompletedRun, assertFailedRun } from "./helpers/run-result.js";
 import { collect } from "./helpers/stream.js";

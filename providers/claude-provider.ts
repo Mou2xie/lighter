@@ -1,7 +1,7 @@
 import Anthropic, { type AnthropicError } from "@anthropic-ai/sdk";
 import type { ContentBlock, ContentBlockParam, Message, MessageCreateParamsNonStreaming } from "@anthropic-ai/sdk/resources/messages";
-import { AssistantMessage, type BaseMessages, type ToolCall } from "../../core/messages.js";
-import { ModelError, type ModelErrorCode } from "../errors.js";
+import { AssistantMessage, type BaseMessages, type ToolCall } from "../core/messages.js";
+import { ModelError, type ModelErrorCode } from "../model/errors.js";
 import type { Provider, ProviderRequest, ProviderStreamEvent } from "./provider.js";
 
 export interface ClaudeProviderOptions {
