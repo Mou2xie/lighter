@@ -68,7 +68,9 @@ test("preserves reasoning, call IDs, outputs and tool errors when adapting conve
     http.assertConsumed();
     const input = http.requests[0]!.body.input;
     assert.ok(Array.isArray(input));
-    assert.deepEqual(input.map(item => item.type), ["message", "message", "reasoning", "message", "function_call", "function_call", "function_call_output", "function_call_output", "message"]);
+    // History adaptation emits assistant text before its reasoning and tool calls.
+    assert.deepEqual(input.map(item => item.type), ["message", "message", "message", "reasoning", "function_call", "function_call", "function_call_output", "function_call_output", "message"]);
+    assert.deepEqual(input[2], { type: "message", role: "assistant", content: "Checking" });
     const reasoningInput = input.find(item => item.type === "reasoning");
     assert.ok(reasoningInput?.type === "reasoning");
     assert.deepEqual(reasoningInput.content, [{ type: "reasoning_text", text: "Need the tools" }]);
