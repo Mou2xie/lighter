@@ -172,7 +172,7 @@ Current behavior that the suites record rather than endorse:
 
 ## Isolation and limits
 
-Every runtime test imports `helpers/offline.ts`. Tests never load `.env`, import the live demo, or use real credentials. HTTP mocks are installed before provider construction and restored after each test. SSE fixtures pass through the actual SDK decoder using mocked HTTP. Synthetic
+Every runtime test imports `helpers/offline.ts`. Tests never load `.env` or use real credentials. HTTP mocks are installed before provider construction and restored after each test. SSE fixtures pass through the actual SDK decoder using mocked HTTP. Synthetic
 iteration failures mock the public SDK resource method. Fixtures and mock providers have finite responses; unexpected HTTP requests fail.
 
 `RecordingProvider` snapshots requests because the agent continues appending to its local context. Controlled promises verify tool ordering without timing-dependent sleeps. Assertions use public results and observed requests, without accessing private agent or provider fields.

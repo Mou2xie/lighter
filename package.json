@@ -1,20 +1,28 @@
 {
-  "name": "lighter",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@yong_xie/lighter",
+  "version": "0.1.0",
+  "description": "A TypeScript framework for building AI agents.",
+  "main": "./dist/index.js",
   "type": "module",
   "scripts": {
     "test": "node --import tsx --test --test-timeout=10000 test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm run typecheck && pnpm run test",
-    "start": "node --env-file-if-exists=.env --import tsx index.ts"
+    "check": "npm run typecheck && npm run test",
+    "clean": "node --input-type=module -e \"import { rmSync } from 'node:fs'; rmSync('dist', { recursive: true, force: true });\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Mou2xie/lighter.git"
   },
-  "keywords": [],
+  "keywords": [
+    "ai",
+    "agent",
+    "typescript",
+    "llm"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {
@@ -30,5 +38,19 @@
     "@anthropic-ai/sdk": "^1.5.0",
     "openai": "^7.30.1",
     "zod": "^4.6.7"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }
