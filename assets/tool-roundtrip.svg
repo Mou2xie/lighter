@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 168" width="1000" height="168" role="img" aria-labelledby="title">
 <title id="title">Tool call example: user question, model call, tool output, assistant reply</title>
 <rect width="1000" height="168" rx="8" fill="#191917"/>
-<g transform="translate(36 26) scale(.073)"><path d="M28.2857 113.231H113.143V198.154H28.2857V113.231Z" fill="white"/>
-<path d="M28.2857 198.154H113.143V283.077H28.2857V198.154Z" fill="white"/>
-<path d="M28.2857 283.077H113.143V368H28.2857V283.077Z" fill="white"/>
-<path d="M113.143 283.077H198V368H113.143V283.077Z" fill="white"/>
-<path d="M68.6939 16.9846H0L27.4776 84.9231H96.1714L68.6939 16.9846Z" fill="#F5460B"/>
-<path d="M62.2286 0H147.086L113.143 84.9231H28.2857L62.2286 0Z" fill="#F59E0B"/></g>
+<g transform="translate(36 26) scale(.073)"><path d="M26 107H106V187H26V107Z" fill="white"/>
+<path d="M26 195H105V274H26V195Z" fill="white"/>
+<path d="M26 281H105V361H26V281Z" fill="white"/>
+<path d="M113 281H192V361H113V281Z" fill="white"/>
+<path d="M62.8571 16H0L25.1429 79H88L62.8571 16Z" fill="#F5460B"/>
+<path d="M57.4286 0H136L104.571 79H26L57.4286 0Z" fill="#F59E0B"/></g>
 <text x="66" y="47" fill="#e8e1d5" font-family="monospace" font-size="18">agent.run()</text>
 <path d="M36 70H964" stroke="#4c463e"/>
 <g font-family="monospace" font-size="16" fill="#f5b54a">
