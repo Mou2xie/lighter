@@ -1,110 +1,113 @@
-# @yong_xie/lighter
+# Lighter
 
-A TypeScript framework for building AI agents with model providers, tools,
-streaming, and lifecycle hooks.
+![Lighter logo on a charcoal banner with an orange spark pattern](./assets/readme-hero.svg)
 
-## Installation
+**English** · [简体中文](./README.zh-CN.md)
 
-```bash
-npm install @yong_xie/lighter
-```
+Lighter is a TypeScript framework for building agents that call your JavaScript functions. Give an agent a model, a message, and any tools it can use. When the model requests a tool, Lighter runs it, feeds the result back, and continues until the model replies without requesting another tool.
 
-This package uses ESM (`import` / `export`). Use `.mjs` files or set
-`"type": "module"` in your application's `package.json`. TypeScript declarations
-are included. Development checks currently run on Node.js 22.23.3; other Node.js
-versions have not been verified.
+## Why Lighter?
+
+- **Lightweight.** The agent loop runs in your Node.js process. Its three direct runtime dependencies are the OpenAI SDK, the Anthropic SDK, and Zod. Your application decides where to store conversations.
+- **Simple.** The same agent accepts `run({ messages })` for a complete result and `stream({ messages })` for incremental output. A tool is a named function with a description and a Zod object schema.
+- **Reliable.** Lighter validates tool arguments before execution. Invalid arguments and thrown tool errors become messages the model can use to correct its call. If a model stream ends before a complete message arrives, the run reports failure and returns the messages already completed.
+- **Customizable.** Choose `OpenAIProvider`, `ClaudeProvider`, or `DeepSeekProvider`, or implement the [Provider interface](./providers/provider.ts) with a name, `invoke`, and `stream`. Set `systemPrompt` with a `SystemMessage`, register your own tools, or use hooks around a run or model call.
 
 ## Quick start
 
-The package exports `DeepSeekProvider`, `OpenAIProvider`, and `ClaudeProvider`.
-Pass your API key and the model ID supported by your provider:
+Install the package in a Node.js project. It ships as ESM with TypeScript declarations. The examples use Node.js 22.23.3.
+
+```sh
+npm install @yong_xie/lighter
+```
+
+Set `OPENAI_API_KEY` and `OPENAI_MODEL_ID` in your environment, using a model ID available to your account. Save this as `hello.mjs` and run `node hello.mjs`. This example calls the OpenAI API.
 
 ```js
 import { Agent, Model, OpenAIProvider, UserMessage } from "@yong_xie/lighter";
 
-const apiKey = process.env.OPENAI_API_KEY;
-const modelId = process.env.OPENAI_MODEL_ID;
-if (!apiKey || !modelId) throw new Error("Set OPENAI_API_KEY and OPENAI_MODEL_ID");
+const { OPENAI_API_KEY, OPENAI_MODEL_ID } = process.env;
+if (!OPENAI_API_KEY || !OPENAI_MODEL_ID) {
+  throw new Error("Set OPENAI_API_KEY and OPENAI_MODEL_ID");
+}
 
-const agent = new Agent({ model: new Model(new OpenAIProvider(apiKey, modelId)) });
-const result = await agent.run({ messages: [new UserMessage("Hello")] });
+const model = new Model(new OpenAIProvider(OPENAI_API_KEY, OPENAI_MODEL_ID));
+const agent = new Agent({ model });
+const history = [new UserMessage("Suggest a name for a bookshop on the moon.")];
+const result = await agent.run({ messages: history });
+
 if (result.status === "failed") throw result.error;
-console.log(result.messages);
+history.push(...result.messages);
+console.log(result.messages.at(-1)?.content);
 ```
 
-`run` returns a `status`, the messages generated during this run, and an optional
-`error`. The caller retains conversation history and can append these generated
-messages before the next run.
+`result.messages` contains only the messages generated during this run. To continue the conversation, append a new `UserMessage` to `history` and pass it back to `agent.run`.
 
-Importing the package does not read API keys or make model requests. Applications
-supply credentials when constructing a real provider. Real provider calls require
-an account and may incur charges from that provider.
+## Demo · Let the model call a function
 
-## Tools
+![Example exchange: the user asks for 19 + 23, the model requests add(19, 23), the tool returns 42, and the assistant answers 42](./assets/tool-roundtrip.svg)
 
-Install Zod in your application if you define tool schemas directly:
+Install `zod` with `npm install zod@4`. Add the following to `hello.mjs` to reuse its `model`. The diagram shows one possible exchange with a model that supports tool calls.
 
-```bash
-npm install zod
-```
-
-```ts
+```js
 import { Tool } from "@yong_xie/lighter";
 import * as z from "zod";
 
-const addition = new Tool({
-  name: "addition",
-  description: "Adds two numbers.",
+const add = new Tool({
+  name: "add",
+  description: "Return the sum of two numbers.",
   parametersZodSchema: z.strictObject({ a: z.number(), b: z.number() }),
   func: ({ a, b }) => a + b,
 });
+
+const calculator = new Agent({ model, tools: [add] });
+const answer = await calculator.run({
+  messages: [new UserMessage("Use the add tool to calculate 19 + 23.")],
+});
+if (answer.status === "failed") throw answer.error;
+for (const message of answer.messages) {
+  if (message.role === "tool") console.log(message.toolName, message.toolOutput);
+  if (message.role === "assistant" && message.content) console.log(message.content);
+}
 ```
 
-Pass tools as `new Agent({ model, tools: [addition] })`. Tool arguments are
-validated before execution. Tool errors are returned to the model as tool messages.
+Lighter executes tool calls in the order the model requested them. Each tool result carries the corresponding call ID, so the model can match results to requests on its next turn.
 
-## Streaming
+## Stream a reply
+
+Reuse the `agent` from the quick start. Print text as it arrives and inspect the terminal result for failure.
 
 ```js
-for await (const event of agent.stream({ messages: [new UserMessage("Hello")] })) {
+for await (const event of agent.stream({ messages: [new UserMessage("Hello!")] })) {
   if ("status" in event) {
     if (event.status === "failed") throw event.error;
-    console.log(event.messages);
   } else if (event.type === "text_delta") {
     process.stdout.write(event.text);
   }
 }
 ```
 
-`stream` yields text/reasoning deltas and then a terminal result. Complete generated
-messages belong to that terminal result. Reasoning events depend on provider and
-model settings.
+Some models also emit `reasoning_delta` events. To save a streamed conversation, append the terminal result’s `messages` to your history. These include complete assistant messages and tool results.
 
-## Public API
+## Lifecycle hooks
 
-- `Agent`, `Model`, `Tool` and their exported configuration/request/result types.
-- `SystemMessage`, `UserMessage`, `AssistantMessage`, `ToolMessage` and message types.
-- `BeforeAgentHook`, `AfterAgentHook`, `BeforeModelHook`, `AfterModelHook`.
-- The three providers above, provider contracts, and `ModelError`.
+Pass hooks in `new Agent({ model, hooks: { … } })`. Each hook accepts a synchronous or asynchronous callback. Returning a replacement value changes what the next step receives.
 
-The initial 0.x API may change. Automated tests use mocked provider responses;
-they do not establish live model API compatibility.
+| Hook | When it runs | Value it receives |
+| --- | --- | --- |
+| `BeforeAgentHook` | At the start of a run | Agent request |
+| `BeforeModelHook` | Before each model call, including tool follow-ups | Model request with messages and optional tool specs |
+| `AfterModelHook` | When a complete model message arrives | Assistant message, including tool calls |
+| `AfterAgentHook` | After the loop completes successfully | Messages generated in this run |
 
-## Development and local packaging
+## Local development
 
-```bash
+```sh
 pnpm install --frozen-lockfile
 npm run check
 npm run build
-npm pack --dry-run
-npm pack
 ```
 
-`npm run check` runs type checking and offline tests. `npm pack` builds JavaScript
-and declarations into `dist`, then creates a local `.tgz` archive. Only `dist`
-and npm's standard package metadata/documentation files are published. Tests
-and `.env` are excluded.
+`npm run check` type-checks the project and runs the offline tests. The provider tests exercise SDK request encoding, streamed responses, and error handling with mocked HTTP. See the [test guide](./test/README.md) for coverage. To create a local installable archive, run `npm pack`.
 
-## License
-
-ISC. See [LICENSE](./LICENSE).
+Lighter is distributed under the [ISC license](./LICENSE).
