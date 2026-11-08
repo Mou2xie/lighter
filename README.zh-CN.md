@@ -2,6 +2,8 @@
 
 ![Lighter 橙黄火花 Logo 与深色品牌头图](./assets/readme-hero.svg)
 
+[![npm 版本](https://img.shields.io/npm/v/@yong_xie/lighter?style=flat-square&logo=npm&logoColor=white&color=007EC6)](https://www.npmjs.com/package/@yong_xie/lighter)
+
 [English](./README.md) · **简体中文**
 
 Lighter 是一个 TypeScript 智能体框架，让模型能在对话中调用你的 JavaScript 函数。给 Agent 配好模型、传入消息，再按需注册工具。模型请求调用工具时，Lighter 会执行函数，把结果交回模型，直到模型给出无需再调用工具的回复。

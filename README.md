@@ -2,6 +2,8 @@
 
 ![Lighter logo on a charcoal banner with an orange spark pattern](./assets/readme-hero.svg)
 
+[![npm version](https://img.shields.io/npm/v/@yong_xie/lighter?style=flat-square&logo=npm&logoColor=white&color=007EC6)](https://www.npmjs.com/package/@yong_xie/lighter)
+
 **English** · [简体中文](./README.zh-CN.md)
 
 Lighter is a TypeScript framework for building agents that call your JavaScript functions. Give an agent a model, a message, and any tools it can use. When the model requests a tool, Lighter runs it, feeds the result back, and continues until the model replies without requesting another tool.
