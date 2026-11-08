@@ -6,101 +6,98 @@
 
 **English** · [简体中文](./README.zh-CN.md)
 
-**A small, explicit agent framework for TypeScript.**
+**A small TypeScript framework for agents that call your functions.**
 
-Lighter runs the tool-calling loop in your Node.js process. You compose four objects—`Provider`, `Model`, `Tool`, and `Agent`—and keep ownership of conversation storage, UI, and infrastructure.
+An agent runs a loop between a model and your code: the model can ask for a tool, Lighter runs it, and the model continues. The loop runs in your Node.js process; your app keeps the conversation history.
 
 > **Status:** 0.x. The API may change between minor releases. Lighter is ESM-only.
 
-## Why Lighter?
+## Before you start
 
-- **Four objects, one job each.** `Provider` talks to a model API, `Model` binds a provider and applies model-call hooks, `Tool` validates and runs a function, and `Agent` owns the loop. There is no hidden orchestration layer between them.
-- **Typed tools.** A Zod schema gives `func` its TypeScript argument type and validates the model's arguments at runtime. Invalid arguments become a tool error the model can correct.
-- **Streaming and hooks, not a platform.** `stream()` yields text and reasoning deltas, then one terminal result. Four lifecycle hooks cover the run and each model call.
-- **No hidden conversation state.** `run()` returns only the messages generated in this run. Each run has its own context, and one `Agent` can serve concurrent runs.
+- Node.js 22+
+- An ESM project: save the examples as `.mjs` (they use top-level `await`), or set `"type": "module"` in `package.json`
+- An API key and a model ID from your model provider. Model calls are billed by that provider.
 
-Lighter is for applications that already have a home for state, UI, and infrastructure. It does not provide persistence, RAG, multi-agent orchestration, tracing, or a sandbox.
+## Your first agent
 
-## Core concepts
-
-| Object | One job | What it owns |
-| --- | --- | --- |
-| `Provider` | Translate between Lighter's message types and a model API. | `name`, `invoke`, and `stream`. |
-| `Model` | Make one model call through a provider. | A `Provider`; applies the before/after model hooks it receives. |
-| `Tool` | Describe and execute one function the model may call. | A name, description, Zod schema, and `func`. |
-| `Agent` | Run the loop until the model stops requesting tools. | A model, tools, system prompt, lifecycle hooks, and the per-run message context. |
-
-A run looks like this:
-
-```text
-system prompt + input messages
-              │
-              ▼
-      Agent ─ Model ─ Provider ─ model API
-              │
-              ▼
-      AssistantMessage
-        ├─ no tool calls ──▶ return generated messages
-        └─ tool calls ─────▶ Tool.execute() for each call, in order
-                                  │
-                                  ▼
-                              ToolMessage(s)
-                                  │
-                                  └──▶ next model call
-```
-
-Only `Agent` owns a loop. `Model` makes one call, `Tool` executes one function, and `Provider` translates one API. You can use the lower layers directly if you need a different loop.
-
-`Agent` accepts `model`, `tools`, `systemPrompt`, and `hooks`; only `model` is required. `systemPrompt` is a `SystemMessage`; when omitted, the agent uses `You are a helpful assistant.` as the default prompt. The agent does not append to the array you pass in: each run builds a local context from the system prompt and your messages, then returns the messages generated during that run.
-
-## Install
-
-Requires Node.js 22+ (tested on Node.js 22) and an ESM project (`"type": "module"` or `.mjs`). TypeScript declarations are included. Lighter is ESM-only, so `require()` is not supported.
+1. Install the package in a new folder:
 
 ```sh
+mkdir my-agent
+cd my-agent
+npm init -y
 npm install @yong_xie/lighter
 ```
 
-Importing the package does not read credentials or make requests. Real provider calls use your API key and are billed by that provider.
+2. Create a `.env` file next to your code. `OPENAI_MODEL_ID` is your own variable; set it to a model ID your account can access:
 
-## Quick start
+```ini
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL_ID=your-model-id
+```
 
-Set `OPENAI_API_KEY` and `OPENAI_MODEL_ID` to a model ID your account can use, then run:
+Do not commit `.env`.
+
+3. Create `hello.mjs`:
 
 ```js
 import { Agent, Model, OpenAIProvider, UserMessage } from "@yong_xie/lighter";
 
-const model = new Model(
-  new OpenAIProvider(process.env.OPENAI_API_KEY, process.env.OPENAI_MODEL_ID),
+// 1. Connect to the model provider.
+const provider = new OpenAIProvider(
+  process.env.OPENAI_API_KEY,
+  process.env.OPENAI_MODEL_ID,
 );
+
+// 2. Wrap the provider in a model.
+const model = new Model(provider);
+
+// 3. Create an agent with that model.
 const agent = new Agent({ model });
 
-const history = [new UserMessage("Suggest a name for a bookshop on the moon.")];
-const result = await agent.run({ messages: history });
+const result = await agent.run({
+  messages: [new UserMessage("Suggest a name for a bookshop on the moon.")],
+});
 
-history.push(...result.messages);
+// Print the last message, which is the assistant's reply.
 console.log(result.messages.at(-1)?.content);
 ```
 
-`result` is an `AgentResponse`:
+4. Run it:
 
-```ts
-{
-  status: "completed" | "failed";
-  messages: BaseMessages;
-  error?: unknown;
-}
+```sh
+node --env-file=.env hello.mjs
 ```
 
-`result.messages` contains only the assistant and tool messages generated during this run. It does not include the system prompt or the messages you passed in. To continue the conversation, append `result.messages` and a new `UserMessage` to your history, then call `agent.run` again.
+You should see a short reply, for example:
 
-## Tool calling
+```text
+The Lunar Shelf
+```
 
-Install Zod in your application, then define a tool. This example reuses `model` and `UserMessage` from the quick start:
+`result.messages` contains the messages generated in this run. The examples omit error handling to stay short; in real code, check `result.status` before reading `result.messages`.
+
+### What just happened?
+
+- `OpenAIProvider` is the connection to the model API. It sends messages and reads replies.
+- `Model` wraps the provider. It gives the agent one object to call, regardless of which provider you use.
+- `Agent` runs the loop: it calls the model, runs any tools the model requests, and calls the model again until there are no more tool requests.
+
+You only need these three for now. The fourth object, `Tool`, is next.
+
+## Add a tool
+
+Tools are optional. If you only need a single model reply, you can stop after the first example.
+
+A tool is a function you allow the model to call. You describe its arguments with a Zod schema, and Lighter runs it when the model asks.
+
+Install Zod in your application:
 
 ```sh
 npm install zod@4
 ```
+
+Add the imports at the top of `hello.mjs` and the rest below the model setup:
 
 ```js
 import { Tool } from "@yong_xie/lighter";
@@ -125,13 +122,43 @@ console.log(answer.messages);
 
 The diagram shows one possible exchange with a model that supports tool calls.
 
-`func` receives the argument type inferred from the Zod schema and may be synchronous or asynchronous. Before it runs, the `Agent` parses the model's JSON arguments and `Tool` validates them against the schema. Unknown tool names, invalid JSON, schema failures, and thrown errors all become error `ToolMessage`s with `isError: true`; the loop continues so the model can correct its call.
+`func` receives the argument type inferred from the Zod schema. Before it runs, `Tool` validates the model's JSON arguments against that schema. If the model asks for an unknown tool, sends invalid JSON, or passes arguments that do not match the schema, the error is returned to the model as a tool message. The same happens if `func` throws. The loop continues so the model can correct its call.
 
-Tool calls run sequentially in the order the model requested them, and each result carries the model's call ID. Return a JSON-serializable value; successful results are passed through `JSON.stringify`, so returning the string `hello` sends `"hello"` (including the quotes) to the model.
+Successful results are passed through `JSON.stringify`, so returning the string `hello` sends `"hello"` (including the quotes) to the model. Tool calls run in the order the model requests them.
 
-## Streaming
+You should see a tool message whose output is `42` in the printed array, followed by an assistant message.
 
-Use `stream()` instead of `run()` to receive output as it arrives. This example reuses `agent` from the quick start:
+## Core concepts
+
+Lighter has four objects. Each does one thing.
+
+| Object | What it is | What you do with it |
+| --- | --- | --- |
+| `Provider` | The adapter for one model API. | Create one with an API key and model ID. |
+| `Model` | The model your agent calls. | Wrap a provider in a `Model`. |
+| `Tool` | A function the model may request. | Give it a name, description, Zod schema, and function. |
+| `Agent` | The object that runs the loop. | Give it a model and tools; call `run()` or `stream()`. |
+
+A run looks like this:
+
+```text
+Agent
+  ├─ calls Model → Provider → model API
+  ├─ if the model requests tools, runs Tool
+  └─ repeats until the model returns no tool calls
+```
+
+`Agent` is the only object that runs the agent loop. `Model`, `Tool`, and `Provider` each do one thing per call.
+
+`Agent` accepts `model`, `tools`, `systemPrompt`, and `hooks`; only `model` is required. `systemPrompt` is a `SystemMessage`; when omitted, Lighter uses `You are a helpful assistant.` as the default prompt.
+
+## Going further
+
+The sections below are optional. Read the one you need.
+
+### Streaming
+
+Use `stream()` instead of `run()` to receive text as it arrives. This example reuses `agent` from the first example:
 
 ```js
 for await (const event of agent.stream({ messages: [new UserMessage("Hello!")] })) {
@@ -143,13 +170,13 @@ for await (const event of agent.stream({ messages: [new UserMessage("Hello!")] }
 }
 ```
 
-`stream()` yields `text_delta` and, when the provider supports it, `reasoning_delta` events. It then yields one terminal `AgentResponse`. Complete assistant and tool messages are in that terminal result, not in the deltas. Tool calls are executed inside the loop and are not streamed as separate events.
+`stream()` yields `text_delta` events and, when the provider supports it, `reasoning_delta` events. It then yields one final `AgentResponse`. Complete assistant and tool messages are in that final result, not in the deltas. Tool calls run inside the loop and are not streamed as separate events.
 
-Reasoning deltas depend on the provider and model settings; enable the provider's reasoning or thinking option when required.
+Reasoning deltas depend on the provider and model settings. Enable the provider's reasoning or thinking option when required.
 
-## Conversations
+### Conversations
 
-The `Agent` holds configuration, not conversation state. Keep history in your application. This example reuses `agent`:
+Your app keeps the conversation history. This example reuses `agent`:
 
 ```js
 const conversation = [new UserMessage("Suggest a name for a bookshop on the moon.")];
@@ -159,15 +186,17 @@ conversation.push(...first.messages);
 
 conversation.push(new UserMessage("Give me three more options."));
 const second = await agent.run({ messages: conversation });
+
+console.log(second.messages.at(-1)?.content);
 ```
 
-`run()` does not append to the array you pass in. Append the returned messages yourself, and decide where history lives and when to trim or persist it.
+`result.messages` contains only the messages generated in that run. `run()` does not append to the array you pass in; append the returned messages yourself.
 
-Because each run gets its own message context, one `Agent` can handle concurrent runs.
+Each run has its own message context, so one `Agent` can handle concurrent runs.
 
-## Lifecycle hooks
+### Lifecycle hooks
 
-Pass hook instances in `new Agent({ model, hooks: { ... } })`. Each hook has a `hookName`, an optional `description`, and a `hookFunction` that may be synchronous or asynchronous. This example reuses `model`:
+Pass hook instances in `new Agent({ model, hooks: { ... } })`. This example reuses `model`:
 
 ```js
 import { BeforeModelHook } from "@yong_xie/lighter";
@@ -186,6 +215,8 @@ const loggedAgent = new Agent({
 });
 ```
 
+Each hook has a `hookName`, an optional `description`, and a `hookFunction` that may be synchronous or asynchronous.
+
 | Hook | When it runs | Value it receives |
 | --- | --- | --- |
 | `BeforeAgentHook` | Once at the start of a run | `AgentRequest` |
@@ -195,11 +226,13 @@ const loggedAgent = new Agent({
 
 Return a replacement value to change the request, message, or result; return nothing to keep the original. Use hooks for logging, redaction, request rewriting, or guardrails.
 
-Replacing or mutating an assistant message can drop provider-native replay where supported. OpenAI reasoning items and Claude signed thinking blocks can only be replayed while the message is unchanged; after a replacement, the next request is rebuilt from the public fields.
+Replacing or mutating an assistant message can drop provider-specific context used in later turns. For example, OpenAI reasoning items and Claude thinking blocks can only be replayed while the message is unchanged. If you only read or log messages, you are fine.
 
-## Provider
+### Provider options
 
-`Model` accepts any object that implements the `Provider` interface: `name`, `invoke`, and `stream`. `invoke` returns one complete `AssistantMessage`; `stream` yields `reasoning_delta` and `text_delta` events, then one `message` event. Built-in adapters live in [`providers/`](./providers/):
+`Model` accepts any object that implements the `Provider` interface: `name`, `invoke`, and `stream`. `invoke` returns one complete `AssistantMessage`; `stream` yields `reasoning_delta` and `text_delta` events, then one `message` event.
+
+Built-in adapters live in [`providers/`](./providers/):
 
 | Provider | Model API | Options |
 | --- | --- | --- |
@@ -207,19 +240,28 @@ Replacing or mutating an assistant message can drop provider-native replay where
 | `ClaudeProvider` | Anthropic Messages API | `maxOutputTokens` (default 8192), `thinking` |
 | `DeepSeekProvider` | DeepSeek's OpenAI-compatible endpoint | API key and model ID |
 
-Each adapter translates the shared message types to its API and back, and classifies SDK errors as `ModelError`. OpenAI and Claude also retain native reasoning or tool context for replay while the message is unchanged.
+Each adapter translates the shared message types to its API and back, and classifies SDK errors as `ModelError`. OpenAI and Claude also keep provider-specific context for later turns while the message is unchanged.
 
 To add another service, implement `Provider` and pass it to `new Model(provider)`. See [`providers/provider.ts`](./providers/provider.ts) for the contract.
 
-## Errors
+## Errors and troubleshooting
 
-Model and provider failures become a failed `AgentResponse` with the messages generated so far:
+### If it doesn't work
+
+- `ERR_REQUIRE_ESM` or `Cannot use import statement`: save the file as `.mjs`, or set `"type": "module"` in `package.json`.
+- `401` or `auth_error`: check `OPENAI_API_KEY`.
+- Model not found: check `OPENAI_MODEL_ID`.
+- `result.status === "failed"`: read `result.error`.
+
+### Error codes
+
+When a run fails, `result.status` is `"failed"` and `result.error` holds the reason:
 
 ```ts
 { status: "failed"; messages: BaseMessages; error: unknown }
 ```
 
-`error` is `unknown` and may be `undefined`, so guard before throwing it. Provider SDK errors are normalized to `ModelError` with a `code`:
+`error` is `unknown` and may be `undefined`, so check it before using it. Provider SDK errors are normalized to `ModelError` with a `code`:
 
 | Code | Meaning |
 | --- | --- |
@@ -236,7 +278,7 @@ Model and provider failures become a failed `AgentResponse` with the messages ge
 
 ## Limits and security
 
-Lighter is intentionally small. It does not include:
+Lighter focuses on the loop. It does not include:
 
 - conversation persistence
 - a maximum number of model turns
@@ -248,7 +290,7 @@ Lighter is intentionally small. It does not include:
 
 A model that keeps requesting tools can keep the loop running; add your own turn limit if that matters. Stopping a stream early prevents later tools from running, but does not cancel a tool that is already in progress.
 
-Tool argument validation checks shape, not authorization. Tools run with your application's privileges, and model output should be treated as untrusted input. Enforce permissions inside each tool, and do not pass model output directly to a shell, database, or filesystem without validation. If you need isolation, run tool code in a separate process or service.
+Tool argument validation checks the format, not permissions. Tools run with your application's privileges, and model output should be treated as untrusted input. Enforce permissions inside each tool, and do not pass model output directly to a shell, database, or filesystem without validation. If you need isolation, run tool code in a separate process or service.
 
 ## API at a glance
 
