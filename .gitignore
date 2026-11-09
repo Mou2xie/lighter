@@ -12,9 +12,5 @@ dist/
 .DS_Store
 *.log
 
-# Local documentation
-/doc/
-docs/
-
 # Local npm package archives
 *.tgz
